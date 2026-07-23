@@ -18,7 +18,7 @@
 ### Fallback Verification
 
 - [ ] Server running → Dashboard loads with live data
-- [ ] Server stopped → Page reload → "cached" badge appears
+- [ ] Visit `http://localhost:8080/api/result?fault=1` → reload page → "cached" badge appears
 - [ ] No network → Dashboard still works (cached)
 
 ### Demo Flow
@@ -50,16 +50,17 @@
 - [ ] Show Dashboard loading
 - [ ] Point to Scenario ID (SC001)
 - [ ] Point to **❌ Failed** transfer status
-- [ ] Point to **HIGH 🔴** risk level + **0.83** score
-- [ ] Point to **70 min** estimated delay
-- [ ] Point to **"Take the next available KTX"** recommendation
-- [ ] Point to **Passenger View** message
+- [ ] Point to **MEDIUM 🟠** risk level + **0.17** score
+- [ ] Point to **30 min** estimated delay
+- [ ] Point to **"Take KTX-110 at 14:00"** recommendation
+- [ ] Point to **Passenger View** message (Korean)
+- [ ] Point to **주변 장소 추천** panel (local suggestions)
 
 ### Technical Explanation (15 seconds)
 
 - [ ] Explain the pipeline: Facts → Rule Engine → Dashboard
 - [ ] Emphasize rules are deterministic (no black box)
-- [ ] Show public API architecture is ready (activate with API key)
+- [ ] Show public API architecture: normalization layer is implemented, endpoint is ready to connect
 
 ### Closing (10 seconds)
 
@@ -74,11 +75,11 @@
 
 | Likely question | Suggested answer |
 |----------------|-----------------|
-| "Is this using real data?" | "Currently mock data, but the public API integration is ready. Activate with a data.go.kr API key." |
+| "Is this using real data?" | "Currently mock data. The normalization layer for public API data is implemented and ready; the API endpoint is not yet connected." |
 | "How accurate is the risk score?" | "Deterministic rule-based. Accuracy improves as more data sources are connected." |
 | "Can this scale to the whole country?" | "The architecture is extensible — add more routes, more data sources, and the same pipeline works." |
 | "Why not use AI/ML?" | "For a hackathon MVP, deterministic rules are more reliable for demo. ML enhancement is an optional future layer." |
-| "What if the internet goes down?" | "The dashboard caches the last result in the browser. Works offline." |
+| "What if the internet goes down?" | "The dashboard caches the last result in the browser (localStorage). Works offline." |
 
 ---
 
