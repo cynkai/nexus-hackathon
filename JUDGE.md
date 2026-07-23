@@ -47,7 +47,7 @@ Scenario.json (facts) → Rule Engine (judgment) → Dashboard (presentation)
 
 ## Known limitations
 
-- **Mock data** — single scenario, not live API data (normalization layer is implemented; endpoint is not yet connected)
+- **Mock data** — three pre-defined scenarios (flight normalization layer implemented; rail timetable integration **not yet implemented** — live API connection would produce empty timetable → fallback behavior)
 - **Not production software** — accuracy is secondary to demonstrating the concept
 - **Feature-freeze** — no reservation, ticketing, payment, or multi-agent (by design)
 

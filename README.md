@@ -145,7 +145,7 @@ python3 rules/rule_engine.py
 ## Limitations
 
 - **Accuracy is secondary.** The goal is demonstrating integrated mobility data, not production-grade predictions.
-- **Mock data.** Current demo uses three pre-defined scenarios (feasible/delayed/lasttrain). The normalization layer for public API data is implemented; the API endpoint is not yet connected.
+- **Mock data.** Current demo uses three pre-defined scenarios (feasible/delayed/lasttrain). The flight data normalization layer is implemented (parses public API → scenario format); rail timetable integration is **not yet implemented** — the normalizer outputs an empty timetable, which causes the rule engine to fall back to default behavior. Production connection requires rail timetable API integration.
 - **No reservation/payment.** Feature freeze by design — the MVP proves the concept, not the full platform.
 - **Single route.** Demo covers one route (Fukuoka → Incheon → Seoul → Busan). The rule engine works for any route, but currently three variations of one route are provided.
 

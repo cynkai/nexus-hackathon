@@ -249,8 +249,14 @@ def normalize_to_scenario(raw_data):
                 "from_arrival": actual_arrival_iso,
                 "to_departure": rail_departure_iso
             }
-        ]
+        ],
+        "rail_timetable": []
     }
+
+    if not scenario.get("rail_timetable"):
+        print("[WARN] normalize_to_scenario: no rail_timetable data — "
+              "rule engine will fall back to default behavior. "
+              "Integrate a rail timetable API to enable proper train selection.")
 
     return scenario
 

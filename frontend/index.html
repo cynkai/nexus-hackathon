@@ -182,10 +182,21 @@
   const STORAGE_KEY = "nexus_demo_result";
   const app = document.getElementById("app");
 
+  // ── XSS escape ────────────────────────────────────────────────
+  function esc(s) {
+    if (s == null) return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#x27;");
+  }
+
   // ── Render helpers ──────────────────────────────────────────────
   function renderDashboard(d, isCached) {
-    const riskClass = "status-" + d.risk_level;
-    const rcClass = "rc-" + d.reason_code;
+    const riskClass = "status-" + esc(d.risk_level);
+    const rcClass = "rc-" + esc(d.reason_code);
     const transferIcon = d.transfer_possible ? "\u2705" : "\u274C";
     const transferText = d.transfer_possible ? "가능" : "불가능";
     const cacheTag = isCached
@@ -194,14 +205,14 @@
 
     const sid = d.recommendation.service_id;
     const dep = d.recommendation.departure;
-    const trainInfo = sid && dep ? `${sid} (${dep} 출발)` : "정보 없음";
+    const trainInfo = sid && dep ? `${esc(sid)} (${esc(dep)} 출발)` : "정보 없음";
     const recAction = d.recommendation.target === "LAST_TRAIN_MISSED" ? "막차 놓침" : "대체 열차";
 
     const operatorHTML = `
       <div class="panel-body">
         <div class="row">
           <span class="label">시나리오 ID ${cacheTag}</span>
-          <span class="value">${d.scenario_id}</span>
+          <span class="value">${esc(d.scenario_id)}</span>
         </div>
         <div class="row">
           <span class="label">환승 가능 여부</span>
@@ -211,7 +222,7 @@
           <span class="label">위험도</span>
           <span class="value status-indicator">
             <span class="status-dot"></span>
-            <span class="status-text">${d.risk_level}</span>
+            <span class="status-text">${esc(d.risk_level)}</span>
           </span>
         </div>
         <div class="row">
@@ -224,18 +235,18 @@
         </div>
         <div class="row">
           <span class="label">사유 코드</span>
-          <span class="value"><span class="reason-code ${rcClass}">${d.reason_code}</span></span>
+          <span class="value"><span class="reason-code ${rcClass}">${esc(d.reason_code)}</span></span>
         </div>
         <div class="row">
           <span class="label">상세 사유</span>
-          <span class="value" style="font-weight:400;font-size:0.8rem;max-width:55%;text-align:right">${d.reason}</span>
+          <span class="value" style="font-weight:400;font-size:0.8rem;max-width:55%;text-align:right">${esc(d.reason)}</span>
         </div>
         <div class="row">
           <span class="label">추천</span>
           <span class="value">
             <div class="rec-card">
-              <div class="rec-label">${recAction} &middot; ${d.recommendation.target}</div>
-              <div class="rec-value">${d.recommendation.display}</div>
+              <div class="rec-label">${recAction} &middot; ${esc(d.recommendation.target)}</div>
+              <div class="rec-value">${esc(d.recommendation.display)}</div>
               <div class="rec-detail">${trainInfo}</div>
             </div>
           </span>
@@ -245,7 +256,7 @@
 
     const passengerHTML = `
       <div class="panel-body">
-        <div class="passenger-msg">${d.passenger_message}</div>
+        <div class="passenger-msg">${esc(d.passenger_message)}</div>
       </div>
     `;
 
@@ -253,8 +264,8 @@
     if (d.local_suggestions && d.local_suggestions.length > 0) {
       var items = d.local_suggestions.map(function(s) {
         return '<div class="rec-card" style="margin-top:0.35rem">' +
-          '<div class="rec-label">' + s.category + ' · ' + s.name + '</div>' +
-          '<div class="rec-value" style="font-size:0.85rem">' + s.description + '</div>' +
+          '<div class="rec-label">' + esc(s.category) + ' · ' + esc(s.name) + '</div>' +
+          '<div class="rec-value" style="font-size:0.85rem">' + esc(s.description) + '</div>' +
           '<div class="rec-detail">도보 ' + s.walk_minutes_from_station + '분 · 체류 ' + s.typical_duration_minutes + '분</div>' +
           '</div>';
       }).join("");
