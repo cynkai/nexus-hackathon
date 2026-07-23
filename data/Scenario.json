@@ -1,0 +1,73 @@
+{
+  "scenario_id": "SC001",
+  "title": "제주에서 부산까지",
+  "passenger": {
+    "id": "P001",
+    "name": "김서울"
+  },
+  "route": {
+    "origin": "Jeju",
+    "waypoints": [
+      "Gimpo Airport",
+      "Seoul Station"
+    ],
+    "destination": "Busan"
+  },
+  "itinerary": [
+    {
+      "leg": 1,
+      "mode": "flight",
+      "service_id": "KE-A",
+      "origin": "Jeju",
+      "destination": "Gimpo",
+      "scheduled_departure": "2026-07-23T10:00:00",
+      "scheduled_arrival": "2026-07-23T11:10:00",
+      "actual_arrival": "2026-07-23T11:55:00",
+      "delay_minutes": 45
+    },
+    {
+      "leg": 2,
+      "mode": "transit",
+      "service_id": null,
+      "service_name": "공항철도",
+      "origin": "Gimpo",
+      "destination": "Seoul Station",
+      "scheduled_departure": "2026-07-23T11:10:00",
+      "scheduled_arrival": "2026-07-23T11:40:00"
+    },
+    {
+      "leg": 3,
+      "mode": "rail",
+      "service_id": "KTX-A",
+      "origin": "Seoul Station",
+      "destination": "Busan",
+      "scheduled_departure": "2026-07-23T12:00:00",
+      "scheduled_arrival": "2026-07-23T13:30:00"
+    }
+  ],
+  "delay_events": [
+    {
+      "subject_service_id": "KE-A",
+      "subject_leg": 1,
+      "type": "delay",
+      "delay_minutes": 45,
+      "scheduled_arrival": "2026-07-23T11:10:00",
+      "actual_arrival": "2026-07-23T11:55:00"
+    }
+  ],
+  "transfers": [
+    {
+      "from_leg": 1,
+      "to_leg": 3,
+      "via_legs": [2],
+      "from_location": "Gimpo",
+      "to_location": "Seoul Station",
+      "from_arrival": "2026-07-23T11:55:00",
+      "to_departure": "2026-07-23T12:00:00",
+      "available_minutes": 5,
+      "required_minutes": 30,
+      "status": "impossible",
+      "feasible": false
+    }
+  ]
+}

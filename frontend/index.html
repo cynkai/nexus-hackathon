@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEXUS Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Noto Sans KR", sans-serif;
+    background: #f0f2f5; color: #1a1d23; line-height: 1.6;
+    min-height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    background: linear-gradient(135deg, #0b1120 0%, #1a2332 100%);
+    color: #f0f4f8; padding: 1rem 2rem;
+    display: flex; align-items: center; gap: 0.75rem;
+    border-bottom: 1px solid #2a3442;
+  }
+  header h1 {
+    font-size: 1.3rem; font-weight: 700; letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #f0f4f8, #94a3b8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  header .badge {
+    font-size: 0.65rem; background: #2a3442; color: #8896a6;
+    padding: 0.2rem 0.6rem; border-radius: 999px;
+    font-weight: 500; letter-spacing: 0.02em;
+    -webkit-text-fill-color: #8896a6;
+  }
+  main {
+    flex: 1; padding: 1.75rem 2rem;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+    max-width: 1200px; margin: 0 auto; width: 100%;
+  }
+  @media (max-width: 820px) {
+    main { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  }
+  .panel {
+    background: #fff; border-radius: 0.75rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    overflow: hidden; transition: box-shadow 0.15s;
+  }
+  .panel:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+  .panel h2 {
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid #e8ecf0; color: #64748b;
+  }
+  .panel-body { padding: 1.25rem 1.25rem 1rem; }
+  .row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.55rem 0; border-bottom: 1px solid #f0f2f5;
+    gap: 1rem;
+  }
+  .row:last-child { border-bottom: none; }
+  .label {
+    font-size: 0.78rem; color: #64748b; font-weight: 500;
+    flex-shrink: 0;
+  }
+  .value {
+    font-size: 0.88rem; font-weight: 600; text-align: right;
+    word-break: break-word;
+  }
+
+  /* risk level status colors */
+  .status-LOW    { --status-color: #16a34a; --status-bg: #dcfce7; }
+  .status-MEDIUM { --status-color: #ea580c; --status-bg: #ffedd5; }
+  .status-HIGH   { --status-color: #dc2626; --status-bg: #fee2e2; }
+  .status-indicator {
+    display: inline-flex; align-items: center; gap: 0.45rem;
+    background: var(--status-bg); padding: 0.2rem 0.65rem 0.2rem 0.5rem;
+    border-radius: 999px;
+  }
+  .status-dot {
+    width: 0.55rem; height: 0.55rem; border-radius: 50%;
+    background: var(--status-color); flex-shrink: 0;
+  }
+  .status-text { font-weight: 700; font-size: 0.82rem; color: var(--status-color); }
+
+  .reason-code {
+    display: inline-block; font-size: 0.65rem;
+    padding: 0.2rem 0.55rem; border-radius: 4px;
+    font-weight: 700; letter-spacing: 0.02em;
+  }
+  .rc-TRANSFER_FEASIBLE        { background: #dcfce7; color: #166534; }
+  .rc-TRANSFER_TIME_INSUFFICIENT { background: #fee2e2; color: #991b1b; }
+
+  .passenger-msg {
+    font-size: 1.05rem; line-height: 1.75; color: #1a1d23;
+    padding: 0.25rem 0;
+  }
+  .empty { color: #94a3b8; font-style: italic; }
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 3.5rem 1.5rem; text-align: center;
+    gap: 0.75rem;
+  }
+  .empty-state .icon { font-size: 2.2rem; }
+  .empty-state .msg { color: #64748b; font-size: 0.9rem; font-weight: 500; }
+  .empty-state .sub { color: #94a3b8; font-size: 0.8rem; }
+  .error-state {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 0.5rem;
+    padding: 1rem 1.25rem; margin: 0.5rem 0;
+  }
+  .error-state .title { font-weight: 700; color: #991b1b; font-size: 0.85rem; }
+  .error-state .desc { color: #b91c1c; font-size: 0.8rem; margin-top: 0.3rem; }
+  .cache-badge {
+    font-size: 0.65rem; background: #fef3c7; color: #92400e;
+    padding: 0.2rem 0.55rem; border-radius: 4px;
+    margin-left: 0.5rem; border: 1px solid #fcd34d;
+    font-weight: 600;
+  }
+  .rec-card {
+    background: #f8fafc; border: 1px solid #e8ecf0;
+    border-radius: 0.5rem; padding: 0.65rem 0.9rem;
+    margin-top: 0.35rem; text-align: left; min-width: 160px;
+  }
+  .rec-card .rec-label { font-size: 0.65rem; color: #64748b; font-weight: 500; }
+  .rec-card .rec-value { font-size: 0.95rem; font-weight: 700; margin-top: 0.1rem; }
+  .rec-detail { font-size: 0.7rem; color: #94a3b8; margin-top: 0.25rem; }
+
+  .footer {
+    text-align: center; padding: 1.25rem; font-size: 0.72rem; color: #94a3b8;
+    border-top: 1px solid #e8ecf0; margin-top: auto;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NEXUS</h1>
+  <span class="badge">Dashboard</span>
+</header>
+
+<main id="app">
+  <div class="panel">
+    <h2>Operator Dashboard</h2>
+    <div class="panel-body empty-state" id="loading-operator">
+      <div class="icon">⏳</div>
+      <div class="msg">Loading…</div>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Passenger View</h2>
+    <div class="panel-body empty-state" id="loading-passenger">
+      <div class="icon">⏳</div>
+      <div class="msg">Loading…</div>
+    </div>
+  </div>
+</main>
+
+<div class="footer">NEXUS &mdash; l내일路(로) 해커톤 2026</div>
+
+<script>
+(function () {
+  const STORAGE_KEY = "nexus_demo_result";
+  const app = document.getElementById("app");
+
+  // ── Render helpers ──────────────────────────────────────────────
+  function renderDashboard(d, isCached) {
+    const riskClass = "status-" + d.risk_level;
+    const rcClass = "rc-" + d.reason_code;
+    const transferIcon = d.transfer_possible ? "\u2705" : "\u274C";
+    const transferText = d.transfer_possible ? "Possible" : "Failed";
+    const cacheTag = isCached
+      ? '<span class="cache-badge">cached</span>'
+      : "";
+
+    const operatorHTML = `
+      <div class="panel-body">
+        <div class="row">
+          <span class="label">Scenario ID ${cacheTag}</span>
+          <span class="value">${d.scenario_id}</span>
+        </div>
+        <div class="row">
+          <span class="label">Transfer Status</span>
+          <span class="value">${transferIcon} ${transferText}</span>
+        </div>
+        <div class="row ${riskClass}">
+          <span class="label">Risk Level</span>
+          <span class="value status-indicator">
+            <span class="status-dot"></span>
+            <span class="status-text">${d.risk_level}</span>
+          </span>
+        </div>
+        <div class="row">
+          <span class="label">Risk Score</span>
+          <span class="value">${d.risk_score}</span>
+        </div>
+        <div class="row">
+          <span class="label">Estimated Delay</span>
+          <span class="value">${d.estimated_delay_minutes} min</span>
+        </div>
+        <div class="row">
+          <span class="label">Reason Code</span>
+          <span class="value"><span class="reason-code ${rcClass}">${d.reason_code}</span></span>
+        </div>
+        <div class="row">
+          <span class="label">Reason</span>
+          <span class="value" style="font-weight:400;font-size:0.8rem;max-width:55%;text-align:right">${d.reason}</span>
+        </div>
+        <div class="row">
+          <span class="label">Recommendation</span>
+          <span class="value">
+            <div class="rec-card">
+              <div class="rec-label">${d.recommendation.action} &middot; ${d.recommendation.target}</div>
+              <div class="rec-value">${d.recommendation.display}</div>
+              <div class="rec-detail">
+                service_id: ${d.recommendation.service_id ?? "null"} &middot;
+                departure: ${d.recommendation.departure ?? "null"}
+              </div>
+            </div>
+          </span>
+        </div>
+      </div>
+    `;
+
+    const passengerHTML = `
+      <div class="panel-body">
+        <div class="passenger-msg">${d.passenger_message}</div>
+      </div>
+    `;
+
+    app.innerHTML = `
+      <div class="panel">
+        <h2>Operator Dashboard</h2>
+        ${operatorHTML}
+      </div>
+      <div class="panel">
+        <h2>Passenger View</h2>
+        ${passengerHTML}
+      </div>
+    `;
+  }
+
+  function renderError(msg) {
+    app.innerHTML = `
+      <div class="panel" style="grid-column:1/-1">
+        <h2>Operator Dashboard</h2>
+        <div class="panel-body">
+          <div class="error-state">
+            <div class="title">Rule Engine unavailable</div>
+            <div class="desc">${msg}</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel" style="grid-column:1/-1">
+        <h2>Passenger View</h2>
+        <div class="panel-body empty-state">
+          <div class="icon">⚠️</div>
+          <div class="msg">No passenger message available</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Main ────────────────────────────────────────────────────────
+  fetch("/api/result")
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.json();
+    })
+    .then(function (d) {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+      } catch (_) { /* storage full — proceed anyway */ }
+      renderDashboard(d, false);
+    })
+    .catch(function () {
+      // Fallback: try cached result
+      var cached = null;
+      try { cached = sessionStorage.getItem(STORAGE_KEY); } catch (_) { /* noop */ }
+      if (cached) {
+        try {
+          var d = JSON.parse(cached);
+          renderDashboard(d, true);
+        } catch (_) {
+          renderError("Cached result is corrupted. Reload the page.");
+        }
+      } else {
+        renderError("Rule Engine unavailable. No cached result available.");
+      }
+    });
+})();
+</script>
+</body>
+</html>
