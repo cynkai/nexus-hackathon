@@ -295,6 +295,7 @@ def run(scenario_path="data/Scenario.json", scenario_data=None):
         "reason_code": rec["reason_code"],
         "reason": rec["reason"],
         "estimated_delay_minutes": estimated_delay_minutes,
+        "flight_delay_minutes": delay,
         "arrival_possible_today": arrival_possible_today,
         "recommendation": rec["recommendation"],
         "passenger_message": passenger_message,
