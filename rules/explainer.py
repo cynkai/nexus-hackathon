@@ -26,34 +26,38 @@ def _template_message(result, lang=DEFAULT_LANGUAGE):
     """
     Build a deterministic passenger message from the result dict.
     Template-based. No LLM calls.
+    Branching is based on reason_code, NOT risk_level.
+    risk_level is only used for intensity within the same code path.
     """
     r = result
+    reason_code = r.get("reason_code", "")
     risk_level = r.get("risk_level", "MEDIUM")
     delay = r.get("estimated_delay_minutes", 0)
     delay_str = f"{delay}분" if delay is not None else "당일 도착 불가"
     delay_en_str = f"{delay} minutes" if delay is not None else "arrival impossible today"
     rec = r.get("recommendation", {})
     suggestions = r.get("local_suggestions", [])
-    # Flight delay minutes from reason string or fallback
-    reason_parts = r.get("reason", "").split("delay of ")
-    flight_delay = reason_parts[1].split(" min")[0] if len(reason_parts) > 1 else (str(delay) if delay is not None else "?")
+    flight_delay = r.get("flight_delay_minutes", None)
+    if flight_delay is None:
+        flight_delay = str(delay) if delay is not None else "?"
 
     if lang == "ko":
-        if risk_level == "LOW":
-            msg = (
-                f"항공편이 지연되었으나 예정된 KTX 환승이 가능합니다. "
-                f"예상 도착 지연: 약 {delay_str}."
-            )
-        elif risk_level == "CRITICAL":
-            msg = (
-                f"항공편 지연으로 인해 KTX 환승이 불가능하며, "
-                f"오늘 운행하는 대체 열차가 없습니다. "
-                f"고객센터(1544-7788)를 통해 대체 교통편을 문의해 주세요."
-            )
-        else:
-            sid = rec.get("service_id")
+        if reason_code == "TRANSFER_FEASIBLE":
+            if risk_level == "LOW":
+                msg = (
+                    f"항공편이 지연되었으나 예정된 KTX 환승이 가능합니다. "
+                    f"예상 도착 지연: 약 {delay_str}."
+                )
+            else:
+                # MEDIUM — transfer possible but buffer < 30 min
+                msg = (
+                    f"항공편이 지연되었으나 예정된 KTX 환승이 가능합니다. "
+                    f"환승 여유 시간이 촉박하니 도착 후 바로 이동해 주세요. "
+                    f"예상 도착 지연: 약 {delay_str}."
+                )
+        elif reason_code == "TRANSFER_TIME_INSUFFICIENT":
             display_ko = rec.get("display_ko", "")
-            if sid and display_ko:
+            if display_ko:
                 msg = (
                     f"항공편이 {flight_delay}분 지연되었습니다. "
                     f"예정된 KTX 환승이 불가능하여 {display_ko}를 추천합니다. "
@@ -65,34 +69,52 @@ def _template_message(result, lang=DEFAULT_LANGUAGE):
                     f"대체 열차를 찾을 수 없어 고객센터(1544-7788) 문의가 필요합니다. "
                     f"예상 도착 지연: 약 {delay_str}."
                 )
-        if suggestions:
+        else:  # LAST_TRAIN_MISSED
+            msg = (
+                f"항공편 지연으로 인해 KTX 환승이 불가능하며, "
+                f"오늘 운행하는 대체 열차가 없습니다. "
+                f"고객센터(1544-7788)를 통해 대체 교통편을 문의해 주세요."
+            )
+        if suggestions and reason_code != "LAST_TRAIN_MISSED":
             names = [s["name"] for s in suggestions[:2]]
             msg += f" 대기 시간을 활용해 주변 장소를 방문해 보세요: {', '.join(names)}."
         return msg
-    else:
-        # English fallback (existing logic)
+
+    # ── English path ────────────────────────────────────────────
+    if reason_code == "TRANSFER_FEASIBLE":
         if risk_level == "LOW":
             return (
                 f"Your flight has been delayed, but the scheduled KTX transfer "
                 f"is still possible. Estimated arrival delay: {delay_en_str}."
             )
-        if risk_level == "CRITICAL":
-            return (
-                f"Due to the flight delay, the KTX transfer is no longer possible "
-                f"and no alternative trains are available today. "
-                f"Please contact customer service (1544-7788) for alternative transport."
-            )
-        if rec.get("service_id"):
-            en_display = rec.get("display", "")
-            return (
-                f"Your flight has been delayed. The scheduled KTX transfer is no longer possible. "
-                f"We recommend {en_display}. Estimated arrival delay: {delay_en_str}."
-            )
         return (
-            f"Your flight has been delayed. The scheduled KTX transfer is no longer possible. "
-            f"No alternative trains available. Please contact customer service (1544-7788). "
+            f"Your flight has been delayed, but the scheduled KTX transfer "
+            f"is still possible. The transfer window is tight — please proceed "
+            f"to the platform immediately upon arrival. "
             f"Estimated arrival delay: {delay_en_str}."
         )
+
+    if reason_code == "TRANSFER_TIME_INSUFFICIENT":
+        en_display = rec.get("display", "")
+        if rec.get("service_id") and en_display:
+            return (
+                f"Your flight has been delayed. The scheduled KTX transfer is "
+                f"no longer possible. We recommend {en_display}. "
+                f"Estimated arrival delay: {delay_en_str}."
+            )
+        return (
+            f"Your flight has been delayed. The scheduled KTX transfer is "
+            f"no longer possible. No alternative trains available. "
+            f"Please contact customer service (1544-7788). "
+            f"Estimated arrival delay: {delay_en_str}."
+        )
+
+    # LAST_TRAIN_MISSED
+    return (
+        f"Due to the flight delay, the KTX transfer is no longer possible "
+        f"and no alternative trains are available today. "
+        f"Please contact customer service (1544-7788) for alternative transport."
+    )
 
 
 def _llm_generate(result, api_key, lang=DEFAULT_LANGUAGE):
