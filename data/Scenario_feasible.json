@@ -1,0 +1,78 @@
+{
+  "scenario_id": "SC002",
+  "title": "인천에서 부산까지 — 환승 가능",
+  "passenger": {
+    "id": "P001",
+    "name": "김서울",
+    "nationality": "KR",
+    "language": "ko"
+  },
+  "route": {
+    "origin": "FUK",
+    "waypoints": ["Incheon International Airport", "Seoul Station"],
+    "destination": "Busan"
+  },
+  "itinerary": [
+    {
+      "leg": 1,
+      "mode": "flight",
+      "service_id": "KE-123",
+      "origin": "FUK",
+      "destination": "ICN",
+      "scheduled_departure": "2026-07-23T09:00:00",
+      "scheduled_arrival": "2026-07-23T11:10:00",
+      "actual_arrival": "2026-07-23T11:55:00",
+      "delay_minutes": 45
+    },
+    {
+      "leg": 2,
+      "mode": "transit",
+      "service_id": null,
+      "service_name": "공항철도 직통",
+      "origin": "ICN",
+      "destination": "Seoul Station",
+      "scheduled_departure": "2026-07-23T12:20:00",
+      "scheduled_arrival": "2026-07-23T13:03:00"
+    },
+    {
+      "leg": 3,
+      "mode": "rail",
+      "service_id": "KTX-120",
+      "origin": "Seoul Station",
+      "destination": "Busan",
+      "scheduled_departure": "2026-07-23T15:00:00",
+      "scheduled_arrival": "2026-07-23T17:40:00"
+    }
+  ],
+  "delay_events": [
+    {
+      "subject_service_id": "KE-123",
+      "subject_leg": 1,
+      "type": "delay",
+      "delay_minutes": 45,
+      "scheduled_arrival": "2026-07-23T11:10:00",
+      "actual_arrival": "2026-07-23T11:55:00"
+    }
+  ],
+  "transfers": [
+    {
+      "from_leg": 1,
+      "to_leg": 3,
+      "via_legs": [2],
+      "from_location": "ICN",
+      "to_location": "Seoul Station",
+      "from_arrival": "2026-07-23T11:55:00",
+      "to_departure": "2026-07-23T15:00:00"
+    }
+  ],
+  "rail_timetable": [
+    { "service_id": "KTX-101", "departure": "13:00", "arrival": "15:40", "seats_available": false },
+    { "service_id": "KTX-105", "departure": "13:30", "arrival": "16:00", "seats_available": true },
+    { "service_id": "KTX-110", "departure": "14:00", "arrival": "16:30", "seats_available": true },
+    { "service_id": "KTX-115", "departure": "14:30", "arrival": "17:10", "seats_available": true },
+    { "service_id": "KTX-120", "departure": "15:00", "arrival": "17:40", "seats_available": true },
+    { "service_id": "KTX-125", "departure": "15:30", "arrival": "18:10", "seats_available": false },
+    { "service_id": "KTX-130", "departure": "16:00", "arrival": "18:40", "seats_available": true },
+    { "service_id": "KTX-135", "departure": "17:00", "arrival": "19:40", "seats_available": true }
+  ]
+}

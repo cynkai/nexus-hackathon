@@ -45,16 +45,37 @@
 - [ ] Introduce the problem: *"Rail and aviation systems don't talk to each other. When a flight is delayed, passengers don't know if they can still catch their train."*
 - [ ] State what NEXUS does: *"We detect the delay, check the transfer, calculate the risk, and tell the passenger what to do."*
 
-### Live Demo (30 seconds)
+### Live Demo (45 seconds)
 
+Three-tier scenario comparison — same engine, three outcomes:
+
+**① 정상 시나리오 (LOW 🟢)**
+```
+python3 -c "from rules.rule_engine import run; r=run('data/Scenario_feasible.json'); print(r['risk_level'], r['risk_score'])"
+```
+- [ ] `risk_level: LOW`, `risk_score: 0.0` 확인
+- [ ] Point to **✅ 가능** transfer status
+- [ ] Point to **LOW 🟢** risk level
+- [ ] Point to **예정대로 진행** recommendation
+- [ ] Point to passenger message: *"환승이 가능합니다"*
+
+**② 지연 시나리오 (MEDIUM 🟠)** — 기본
 - [ ] Show Dashboard loading
 - [ ] Point to Scenario ID (SC001)
-- [ ] Point to **❌ Failed** transfer status
+- [ ] Point to **❌ 불가능** transfer status
 - [ ] Point to **MEDIUM 🟠** risk level + **0.17** score
 - [ ] Point to **30 min** estimated delay
-- [ ] Point to **"Take KTX-110 at 14:00"** recommendation
+- [ ] Point to **14:00 출발 KTX-110** recommendation
 - [ ] Point to **Passenger View** message (Korean)
 - [ ] Point to **주변 장소 추천** panel (local suggestions)
+
+**③ 막차 시나리오 (CRITICAL 🔴)**
+- [ ] Visit `http://localhost:8080/api/result?fault=1` → reload → cached fallback
+- [ ] Or restart with late arrival: edit `actual_arrival` to `20:00`
+- [ ] Point to **CRITICAL 🔴** risk level
+- [ ] Point to **당일 도착 불가** delay display
+- [ ] Point to passenger message: *"대체 열차가 없습니다. 고객센터(1544-7788)..."*
+- [ ] Note: local suggestions disappear (도착 불가) — intentional
 
 ### Technical Explanation (15 seconds)
 

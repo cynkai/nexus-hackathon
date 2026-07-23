@@ -85,7 +85,8 @@ try:
     required_output = [
         "scenario_id", "transfer_possible", "risk_score",
         "risk_level", "reason_code", "reason",
-        "estimated_delay_minutes", "recommendation", "passenger_message"
+        "estimated_delay_minutes", "flight_delay_minutes",
+        "recommendation", "passenger_message"
     ]
     for field in required_output:
         check(f"Rule Engine output contains '{field}'", field in result)
