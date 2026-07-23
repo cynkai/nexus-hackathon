@@ -123,26 +123,31 @@ python3 rules/rule_engine.py
 
 ---
 
-## Demo Flow (60–90 seconds)
+## Demo Flow (~60 seconds)
 
 1. Start server → `python3 frontend/server.py`
 2. Open browser → `http://localhost:8080`
-3. Dashboard loads with "불러오는 중…" → replaced by live data
-4. **Operator Dashboard** shows:
-   - 시나리오 ID: SC001, 환승 가능 여부 (❌ 불가능), 위험도 (MEDIUM 🟠)
-   - 위험 점수: 0.17, 예상 지연: 30분
-   - 추천 ("Take KTX-110 at 14:00")
-5. **Passenger View** shows Korean passenger message
-6. Visit `http://localhost:8080/api/result?fault=1` → reload page → **cached fallback** displays with "cached" badge
+3. Dashboard loads — press 🟢🟠🔴 header buttons to switch:
+
+   | Button | URL | scenario_id | Risk |
+   |--------|-----|-------------|------|
+   | 🟢 정상 | `?scenario=feasible` | SC000 | LOW / 0.0 / TRANSFER_FEASIBLE |
+   | 🟠 지연 | (기본) | SC001 | MEDIUM / 0.17 / TRANSFER_TIME_INSUFFICIENT |
+   | 🔴 막차 | `?scenario=lasttrain` | SC002 | CRITICAL / 1.0 / LAST_TRAIN_MISSED |
+
+   → Same rule engine, three different outputs.
+
+4. **Fault fallback** (별도 시연): `?fault=1` → reload → cached badge appears.
+   → API 장애 시에도 브라우저 캐시로 마지막 결과 표시.
 
 ---
 
 ## Limitations
 
 - **Accuracy is secondary.** The goal is demonstrating integrated mobility data, not production-grade predictions.
-- **Mock data.** Current demo uses a single pre-defined scenario. The normalization layer for public API data is implemented; the API endpoint is not yet connected.
+- **Mock data.** Current demo uses three pre-defined scenarios (feasible/delayed/lasttrain). The normalization layer for public API data is implemented; the API endpoint is not yet connected.
 - **No reservation/payment.** Feature freeze by design — the MVP proves the concept, not the full platform.
-- **Single route.** Demo covers one route (Fukuoka → Incheon → Seoul → Busan). The rule engine works for any route, but only one scenario is provided.
+- **Single route.** Demo covers one route (Fukuoka → Incheon → Seoul → Busan). The rule engine works for any route, but currently three variations of one route are provided.
 
 ---
 

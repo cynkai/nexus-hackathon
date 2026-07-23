@@ -15,7 +15,14 @@
 - [ ] Dashboard loads at `http://localhost:8080`
 - [ ] API returns data (`curl http://localhost:8080/api/result`)
 
-### Fallback Verification
+### Three-Scenario Verification
+
+- [ ] 🟢 `/api/result?scenario=feasible` → LOW + SC000
+- [ ] 🟠 `/api/result` → MEDIUM + SC001
+- [ ] 🔴 `/api/result?scenario=lasttrain` → CRITICAL + SC002
+- [ ] 대시보드 🟢🟠🔴 버튼으로 전환 가능
+
+### Fallback Verification (별도)
 
 - [ ] Server running → Dashboard loads with live data
 - [ ] Visit `http://localhost:8080/api/result?fault=1` → reload page → "cached" badge appears
@@ -45,23 +52,21 @@
 - [ ] Introduce the problem: *"Rail and aviation systems don't talk to each other. When a flight is delayed, passengers don't know if they can still catch their train."*
 - [ ] State what NEXUS does: *"We detect the delay, check the transfer, calculate the risk, and tell the passenger what to do."*
 
-### Live Demo (45 seconds)
+### Demo Flow (Four Scenarios)
 
-Three-tier scenario comparison — same engine, three outcomes:
+Same engine, four outcomes — three scenario levels plus one fault fallback:
 
-**① 정상 시나리오 (LOW 🟢)**
-```
-python3 -c "from rules.rule_engine import run; r=run('data/Scenario_feasible.json'); print(r['risk_level'], r['risk_score'])"
-```
-- [ ] `risk_level: LOW`, `risk_score: 0.0` 확인
+**① 정상 시나리오 (LOW 🟢)** — `/api/result?scenario=feasible`
+- [ ] Visit `http://localhost:8080/api/result?scenario=feasible` or press 🟢 정상 button
+- [ ] Point to **SC000** scenario ID
 - [ ] Point to **✅ 가능** transfer status
-- [ ] Point to **LOW 🟢** risk level
-- [ ] Point to **예정대로 진행** recommendation
+- [ ] Point to **LOW 🟢** risk level + **0.00** score
+- [ ] Point to **환승 가능, 계획대로 진행** recommendation
 - [ ] Point to passenger message: *"환승이 가능합니다"*
 
-**② 지연 시나리오 (MEDIUM 🟠)** — 기본
-- [ ] Show Dashboard loading
-- [ ] Point to Scenario ID (SC001)
+**② 지연 시나리오 (MEDIUM 🟠)** — 대시보드 기본 (SC001)
+- [ ] Visit `/api/result` or press 🟠 지연 button
+- [ ] Point to **SC001** scenario ID
 - [ ] Point to **❌ 불가능** transfer status
 - [ ] Point to **MEDIUM 🟠** risk level + **0.17** score
 - [ ] Point to **30 min** estimated delay
@@ -69,15 +74,21 @@ python3 -c "from rules.rule_engine import run; r=run('data/Scenario_feasible.jso
 - [ ] Point to **Passenger View** message (Korean)
 - [ ] Point to **주변 장소 추천** panel (local suggestions)
 
-**③ 막차 시나리오 (CRITICAL 🔴)**
-- [ ] Visit `http://localhost:8080/api/result?fault=1` → reload → cached fallback
-- [ ] Or restart with late arrival: edit `actual_arrival` to `20:00`
-- [ ] Point to **CRITICAL 🔴** risk level
+**③ 막차 시나리오 (CRITICAL 🔴)** — `/api/result?scenario=lasttrain`
+- [ ] Visit `http://localhost:8080/api/result?scenario=lasttrain` or press 🔴 막차 button
+- [ ] Point to **SC002** scenario ID
+- [ ] Point to **❌ 불가능** transfer status
+- [ ] Point to **CRITICAL 🔴** risk level + **1.00** score
 - [ ] Point to **당일 도착 불가** delay display
 - [ ] Point to passenger message: *"대체 열차가 없습니다. 고객센터(1544-7788)..."*
-- [ ] Note: local suggestions disappear (도착 불가) — intentional
+- [ ] Note: local suggestions **disappear** (도착 불가) — intentional
 
-### Technical Explanation (15 seconds)
+**④ 장애 폴백** — `/api/result?fault=1` → 새로고침
+- [ ] Visit `http://localhost:8080/api/result?fault=1` → reload page → **cached** badge appears
+- [ ] Explain: *"API 서버 장애 시에도 브라우저 캐시로 마지막 결과를 표시합니다"*
+
+> **①→②→③** 연속 전환(🟢→🟠→🔴 버튼)으로 동일 엔진이 입력에 따라 다른 판단을 내리는 것을 보여준다 (약 30초).
+> **④** 폴백은 별도 기능임을 강조한다 (약 15초).
 
 - [ ] Explain the pipeline: Facts → Rule Engine → Dashboard
 - [ ] Emphasize rules are deterministic (no black box)

@@ -74,6 +74,84 @@ except (FileNotFoundError, json.JSONDecodeError) as e:
     for _ in range(10): check("(skipped)", False)
 
 
+# ── 1b. All Scenario Files Validation (H3) ─────────────────────────
+print("\n[H3-1~4/7] All Scenario Files (H3)")
+
+SCENARIO_KEYS = {"feasible": "Scenario_feasible.json", "delayed": "Scenario.json", "lasttrain": "Scenario_lasttrain.json"}
+EXPECTED_SCENARIO_IDS = {"feasible": "SC000", "delayed": "SC001", "lasttrain": "SC002"}
+EXPECTED_RISK_LEVELS = {"feasible": "LOW", "delayed": "MEDIUM", "lasttrain": "CRITICAL"}
+EXPECTED_REASON_CODES = {"feasible": "TRANSFER_FEASIBLE", "delayed": "TRANSFER_TIME_INSUFFICIENT", "lasttrain": "LAST_TRAIN_MISSED"}
+
+scenario_data_dict = {}
+
+try:
+    sys.path.insert(0, str(PROJECT_ROOT))
+    for key, filename in SCENARIO_KEYS.items():
+        fpath = PROJECT_ROOT / "data" / filename
+
+        # H3-1a: File exists and is valid JSON
+        try:
+            with open(fpath) as f:
+                sdata = json.load(f)
+            check(f"H3-1: {filename} exists and is valid JSON", True)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            check(f"H3-1: {filename} load failed: {e}", False)
+            continue
+
+        # H3-7: Schema validation (same required fields as Scenario.json)
+        for field in required_fields:
+            check(f"H3-7: {filename} contains '{field}'", field in sdata)
+
+        # H3-7b: No forbidden transfer fields
+        tf = sdata.get("transfers", [{}])[0]
+        for fname in forbidden:
+            check(f"H3-7: {filename} transfers does NOT contain '{fname}'", fname not in tf)
+
+        # H3-7c: F5 timetable match
+        l3 = sdata["itinerary"][2]
+        tt = sdata.get("rail_timetable", [])
+        tm = [e for e in tt if e["service_id"] == l3["service_id"]]
+        if tm:
+            e = tm[0]
+            dep_ok = e["departure"] == l3["scheduled_departure"].split("T")[1][:5]
+            arr_ok = e["arrival"] == l3["scheduled_arrival"].split("T")[1][:5]
+            check(f"H3-7: {filename} itinerary leg3 matches rail_timetable", dep_ok and arr_ok)
+        else:
+            check(f"H3-7: {filename} itinerary leg3 matches rail_timetable", False)
+
+        # H3-4: scenario_id uniqueness
+        check(f"H3-4: {filename} scenario_id == {EXPECTED_SCENARIO_IDS[key]}",
+              sdata.get("scenario_id") == EXPECTED_SCENARIO_IDS[key])
+
+        # Run rule engine for risk/reason checks
+        from rules.rule_engine import run as run_re
+        re_result = run_re(scenario_data=sdata)
+        scenario_data_dict[key] = re_result
+
+        # H3-2: risk_level
+        check(f"H3-2: {filename} → risk_level == {EXPECTED_RISK_LEVELS[key]}",
+              re_result["risk_level"] == EXPECTED_RISK_LEVELS[key])
+
+        # H3-3: reason_code
+        check(f"H3-3: {filename} → reason_code == {EXPECTED_REASON_CODES[key]}",
+              re_result["reason_code"] == EXPECTED_REASON_CODES[key])
+
+    # H3-4b: all three scenario_ids are distinct
+    ids = set()
+    for key in SCENARIO_KEYS:
+        ids.add(EXPECTED_SCENARIO_IDS[key])
+    check("H3-4: All three scenario_ids are distinct", len(ids) == 3)
+
+except Exception as e:
+    import traceback
+    traceback.print_exc()
+    check(f"H3 block failed: {e}", False)
+    # count how many checks we'd skip
+    checks_per_file = 1 + len(required_fields) + len(forbidden) + 1 + 1 + 1 + 1  # ~11
+    for _ in range(checks_per_file * 3 + 1):
+        check("(skipped)", False)
+
+
 # ── 2. Rule Engine executes ────────────────────────────────────────
 print("\n[2/7] Rule Engine")
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -184,6 +262,40 @@ try:
     check("API output has recommendation", "recommendation" in api_data)
     check("API output has passenger_message", "passenger_message" in api_data)
 
+    # H3-6: Test all 3 scenario URLs return HTTP 200 with distinct risk_level
+    scenario_urls = {
+        "feasible":  "/api/result?scenario=feasible",
+        "delayed":   "/api/result",
+        "lasttrain": "/api/result?scenario=lasttrain",
+    }
+    seen_risk_levels = set()
+    # Also verify invalid keys fall back
+    safe_urls = [
+        "/api/result?scenario=nonsense",
+        "/api/result?scenario=../../etc/passwd",
+    ]
+    all_endpoints_ok = True
+    for label, url in scenario_urls.items():
+        conn.request("GET", url)
+        resp = conn.getresponse()
+        data = json.loads(resp.read())
+        ok = resp.status == 200
+        all_endpoints_ok = all_endpoints_ok and ok
+        rl = data.get("risk_level", "?")
+        seen_risk_levels.add(rl)
+        sid = data.get("scenario_id", "?")
+        check(f"H3-6: {label} → HTTP {resp.status} {sid} {rl}", ok)
+
+    check("H3-6: All 3 scenario URLs return distinct risk_level",
+          seen_risk_levels == {"LOW", "MEDIUM", "CRITICAL"})
+
+    for url in safe_urls:
+        conn.request("GET", url)
+        resp = conn.getresponse()
+        data = json.loads(resp.read())
+        ok = resp.status == 200 and data.get("risk_level") == "MEDIUM"
+        check(f"H3-6: Invalid key '{url.split('=')[1]}' → MEDIUM default", ok)
+
     # ── Dashboard test ──
     conn.request("GET", "/")
     resp = conn.getresponse()
@@ -215,6 +327,39 @@ try:
 except Exception as e:
     check(f"Public API fallback failed: {e}", False)
     for _ in range(2): check("(skipped)", False)
+
+
+# ── H3-5. Scenario Selection Fallback ──────────────────────────────
+print("\n  └ H3-5: Scenario Selection Fallback")
+try:
+    from backend.public_api import get_scenario_data
+
+    # Valid keys load the correct scenario
+    feasible = get_scenario_data(scenario_key="feasible")
+    check("H3-5: scenario_key='feasible' → SC000", feasible.get("scenario_id") == "SC000")
+
+    lasttrain = get_scenario_data(scenario_key="lasttrain")
+    check("H3-5: scenario_key='lasttrain' → SC002", lasttrain.get("scenario_id") == "SC002")
+
+    # Invalid key → silent fallback to delayed (no exception)
+    nonsense = get_scenario_data(scenario_key="존재하지않는키")
+    check("H3-5: invalid key → no exception", True)
+    check("H3-5: invalid key → SC001 (delayed default)", nonsense.get("scenario_id") == "SC001")
+
+    # Empty/None key → delayed
+    none_key = get_scenario_data(scenario_key=None)
+    no_key = get_scenario_data()
+    check("H3-5: scenario_key=None → SC001", none_key.get("scenario_id") == "SC001")
+    check("H3-5: no scenario_key → SC001", no_key.get("scenario_id") == "SC001")
+
+    # Malicious path patterns → fallback to delayed
+    path_traversal = get_scenario_data(scenario_key="../../etc/passwd")
+    check("H3-5: path traversal key → SC001 (not file read)", path_traversal.get("scenario_id") == "SC001")
+except Exception as e:
+    import traceback
+    traceback.print_exc()
+    check(f"H3-5 fallback test failed: {e}", False)
+    for _ in range(6): check("(skipped)", False)
 
 
 # ── 6. Explain / Local regression tests ──────────────────────────
