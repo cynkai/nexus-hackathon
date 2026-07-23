@@ -166,16 +166,8 @@ def normalize_to_scenario(raw_data):
     rail_arrival_iso = rail.get("scheduledArrival", "")
 
     # ── Build transfer info ────────────────────────────────────────
-    airport_code = flight.get("destination", "Gimpo")
+    airport_code = flight.get("destination", "ICN")
     station_name = rail.get("origin", "Seoul Station")
-
-    available_min = 0
-    required_min = 30  # default required transfer time
-
-    if actual_arrival_iso and rail_departure_iso:
-        arr_min = _parse_iso_minutes(actual_arrival_iso)
-        dep_min = _parse_iso_minutes(rail_departure_iso)
-        available_min = max(0, dep_min - arr_min)
 
     # ── Assemble Scenario-compatible document ──────────────────────
     scenario = {
@@ -183,7 +175,9 @@ def normalize_to_scenario(raw_data):
         "title": f"{flight.get('origin', '?')} → {rail.get('destination', '?')}",
         "passenger": {
             "id": "P-API",
-            "name": "API Passenger"
+            "name": "API Passenger",
+            "nationality": "KR",
+            "language": "ko"
         },
         "route": {
             "origin": flight.get("origin", "?"),
@@ -240,11 +234,7 @@ def normalize_to_scenario(raw_data):
                 "from_location": airport_code,
                 "to_location": station_name,
                 "from_arrival": actual_arrival_iso,
-                "to_departure": rail_departure_iso,
-                "available_minutes": available_min,
-                "required_minutes": required_min,
-                "status": "impossible" if available_min < required_min else "possible",
-                "feasible": available_min >= required_min
+                "to_departure": rail_departure_iso
             }
         ]
     }
