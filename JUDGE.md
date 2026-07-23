@@ -24,14 +24,14 @@ A passenger arrives at **Incheon International Airport** from abroad, then plans
 1. **Start:** `python3 frontend/server.py`
 2. **Open:** `http://localhost:8080`
 3. **Dashboard loads** — Operator sees: SC001, ❌ 불가능, MEDIUM, 0.17, 30분 delay, Korean passenger message
-4. **Passenger sees:** *"항공편이 45분 지연되었습니다. 예정된 KTX 환승이 불가능하여 Take KTX-110 at 14:00을(를) 추천합니다..."*
+4. **Passenger sees:** *"항공편이 45분 지연되었습니다. 예정된 KTX 환승이 불가능하여 14:00 출발 KTX-110를 추천합니다..."*
 5. **Fault injection:** Visit `/api/result?fault=1` then reload — cached fallback works (server failure demo)
 
 ## Why this matters
 
 - **Integrated data** — Combining rail + aviation produces insights neither system can generate alone
 - **Explainable** — Every recommendation includes a reason, risk score, and estimated delay (no black box)
-- **Deterministic** — Rule-based, no ML/LLM, fully auditable
+- **Deterministic** — All scores, risk levels, and recommendations are rule-based. Passenger-facing text uses LLM when available (template fallback otherwise). Smoke test proves decision fields are byte-identical between LLM and template paths. Fully auditable.
 - **Resilient** — Graceful fallback if data sources are unavailable
 - **Extensible** — Normalization layer for public API data is implemented; API endpoint is ready to connect
 
