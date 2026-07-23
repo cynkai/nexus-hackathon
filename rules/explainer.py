@@ -30,17 +30,19 @@ def _template_message(result, lang=DEFAULT_LANGUAGE):
     r = result
     risk_level = r.get("risk_level", "MEDIUM")
     delay = r.get("estimated_delay_minutes", 0)
+    delay_str = f"{delay}분" if delay is not None else "당일 도착 불가"
+    delay_en_str = f"{delay} minutes" if delay is not None else "arrival impossible today"
     rec = r.get("recommendation", {})
     suggestions = r.get("local_suggestions", [])
     # Flight delay minutes from reason string or fallback
     reason_parts = r.get("reason", "").split("delay of ")
-    flight_delay = reason_parts[1].split(" min")[0] if len(reason_parts) > 1 else str(delay)
+    flight_delay = reason_parts[1].split(" min")[0] if len(reason_parts) > 1 else (str(delay) if delay is not None else "?")
 
     if lang == "ko":
         if risk_level == "LOW":
             msg = (
                 f"항공편이 지연되었으나 예정된 KTX 환승이 가능합니다. "
-                f"예상 도착 지연: 약 {delay}분."
+                f"예상 도착 지연: 약 {delay_str}."
             )
         elif risk_level == "CRITICAL":
             msg = (
@@ -50,19 +52,18 @@ def _template_message(result, lang=DEFAULT_LANGUAGE):
             )
         else:
             sid = rec.get("service_id")
-            dep = rec.get("departure")
-            display = rec.get("display", "")
-            if sid and dep:
+            display_ko = rec.get("display_ko", "")
+            if sid and display_ko:
                 msg = (
                     f"항공편이 {flight_delay}분 지연되었습니다. "
-                    f"예정된 KTX 환승이 불가능하여 {display}을(를) 추천합니다. "
-                    f"예상 도착 지연: 약 {delay}분."
+                    f"예정된 KTX 환승이 불가능하여 {display_ko}를 추천합니다. "
+                    f"예상 도착 지연: 약 {delay_str}."
                 )
             else:
                 msg = (
                     f"항공편 지연으로 예정된 KTX 환승이 불가능합니다. "
                     f"대체 열차를 찾을 수 없어 고객센터(1544-7788) 문의가 필요합니다. "
-                    f"예상 도착 지연: 약 {delay}분."
+                    f"예상 도착 지연: 약 {delay_str}."
                 )
         if suggestions:
             names = [s["name"] for s in suggestions[:2]]
@@ -73,23 +74,24 @@ def _template_message(result, lang=DEFAULT_LANGUAGE):
         if risk_level == "LOW":
             return (
                 f"Your flight has been delayed, but the scheduled KTX transfer "
-                f"is still possible. Estimated arrival delay: {delay} minutes."
+                f"is still possible. Estimated arrival delay: {delay_en_str}."
             )
         if risk_level == "CRITICAL":
             return (
                 f"Due to the flight delay, the KTX transfer is no longer possible "
-                f"and no替代 trains are available today. "
+                f"and no alternative trains are available today. "
                 f"Please contact customer service (1544-7788) for alternative transport."
             )
         if rec.get("service_id"):
+            en_display = rec.get("display", "")
             return (
                 f"Your flight has been delayed. The scheduled KTX transfer is no longer possible. "
-                f"We recommend {display}. Estimated arrival delay: {delay} minutes."
+                f"We recommend {en_display}. Estimated arrival delay: {delay_en_str}."
             )
         return (
             f"Your flight has been delayed. The scheduled KTX transfer is no longer possible. "
             f"No alternative trains available. Please contact customer service (1544-7788). "
-            f"Estimated arrival delay: {delay} minutes."
+            f"Estimated arrival delay: {delay_en_str}."
         )
 
 

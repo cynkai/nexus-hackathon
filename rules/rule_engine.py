@@ -61,13 +61,13 @@ def calculate_transfer_possible(available_minutes, required_minutes):
 
 def calculate_risk_score(transfer_possible, available_minutes, required_minutes, estimated_delay_minutes, last_train_missed=False, seat_contention=False):
     """
-    Multi-factor risk score 0.0–1.0.
+    Multi-factor risk score 0.0–0.99 (or 1.0 for last_train_missed).
     
     | Condition | Risk | Level |
     |---|---|---|
     | Transfer feasible, buffer ≥ 30 min | 0.0 | LOW |
     | Transfer feasible, buffer < 15 min | 0.3 | MEDIUM |
-    | Transfer failed,替代 train exists | delay/180min | MEDIUM/HIGH |
+    | Transfer failed, alternative train exists | delay/180min | MEDIUM/HIGH |
     | Seat contention (skipped no-seat train) | +0.2 weight | HIGH |
     | Last train missed | 1.0 | CRITICAL |
     """
@@ -83,9 +83,10 @@ def calculate_risk_score(transfer_possible, available_minutes, required_minutes,
     if last_train_missed:
         return 1.0
     
-    base = min(1.0, estimated_delay_minutes / NORMALIZE_THRESHOLD)
+    # Alternative exists — cap at HIGH range (0.99 max)
+    base = min(0.99, estimated_delay_minutes / NORMALIZE_THRESHOLD)
     if seat_contention:
-        base = min(1.0, base + 0.2)
+        base = min(0.99, base + 0.2)
     return round(base, 2)
 
 
@@ -99,12 +100,12 @@ def calculate_estimated_delay(transfer_possible, next_train, original_arrival_is
     """
     Estimated total delay to final destination (minutes).
     = selected train arrival - originally scheduled arrival.
-    Based on actual timetable, not shortfall heuristics.
+    Returns None if no train is available today (arrival impossible).
     """
     if transfer_possible:
         return 0
     if not next_train:
-        return 180  # worst-case: 3h if no替代 train found
+        return None  # arrival impossible today
     _, _, next_arrival = next_train["train"]
     orig_arr_min = _time_str_to_minutes(original_arrival_iso.split("T")[1][:5])
     next_arr_min = _time_str_to_minutes(next_arrival)
@@ -134,15 +135,16 @@ def select_next_train(ready_minutes_from_midnight, rail_timetable):
     return {"train": best, "seat_contention": seat_contention}
 
 
-def calculate_risk_level(risk_score):
-    """Map numeric risk_score to a human-readable level."""
+def calculate_risk_level(risk_score, last_train_missed=False):
+    """Map numeric risk_score to a human-readable level.
+    Only last_train_missed=True can produce CRITICAL."""
+    if last_train_missed:
+        return "CRITICAL"
     if risk_score == 0.0:
         return "LOW"
     if risk_score < 0.50:
         return "MEDIUM"
-    if risk_score < 1.0:
-        return "HIGH"
-    return "CRITICAL"
+    return "HIGH"
 
 
 def generate_recommendation(transfer_possible, delay_minutes, available_minutes, required_minutes, profile_data, next_train=None):
@@ -156,6 +158,7 @@ def generate_recommendation(transfer_possible, delay_minutes, available_minutes,
                 "action": "CONTINUE",
                 "target": "CURRENT_PLAN",
                 "display": "Continue as planned",
+            "display_ko": "예정대로 진행",
                 "service_id": None,
                 "departure": None
             },
@@ -181,20 +184,25 @@ def generate_recommendation(transfer_possible, delay_minutes, available_minutes,
     if next_train:
         sid, dep, arr = next_train["train"]
         display = f"Take {sid} at {dep}"
+        display_ko = f"{dep} 출발 {sid}"
         target = "NEXT_AVAILABLE_RAIL"
         reason_extra = f"Recommended: {sid} departing at {dep}, arriving {arr}."
+        reason_code = "TRANSFER_TIME_INSUFFICIENT"
     else:
         sid, dep, arr = None, None, None
         display = "No alternative rail service available"
+        display_ko = "대체 열차 없음"
         target = "LAST_TRAIN_MISSED"
-        reason_extra = "No替代 rail service with available seats found for today."
+        reason_extra = "No alternative rail service with available seats found for today."
+        reason_code = "LAST_TRAIN_MISSED"
 
     return {
         "recommendation": {
             "action": "RESCHEDULE",
             "target": target,
-            "display": display,
-            "service_id": sid,
+        "display": display,
+        "display_ko": display_ko,
+        "service_id": sid,
             "departure": dep
         },
         "reason": (
@@ -203,17 +211,24 @@ def generate_recommendation(transfer_possible, delay_minutes, available_minutes,
             f"Available transfer time ({available_minutes} min) → {shortfall} min short. "
             f"{reason_extra}"
         ),
-        "reason_code": "TRANSFER_TIME_INSUFFICIENT"
+        "reason_code": reason_code
     }
 
 
 def generate_passenger_message(delay_minutes, estimated_delay_minutes, risk_level):
     """Deterministic passenger-facing message. Template-based only."""
+    delay_str = f"{estimated_delay_minutes}분" if estimated_delay_minutes is not None else "당일 도착 불가"
     if risk_level == "LOW":
         return (
             f"Your flight has been delayed by {delay_minutes} minutes. "
             f"Your scheduled rail transfer is still possible. "
             f"Estimated arrival delay: {estimated_delay_minutes} minutes."
+        )
+    if risk_level == "CRITICAL" and estimated_delay_minutes is None:
+        return (
+            f"Your flight has been delayed by {delay_minutes} minutes. "
+            f"The scheduled rail transfer is no longer possible. "
+            f"No alternative KTX service available today."
         )
     return (
         f"Your flight has been delayed by {delay_minutes} minutes. "
@@ -255,15 +270,21 @@ def run(scenario_path="data/Scenario.json", scenario_data=None):
         transfer_possible, available, required,
         estimated_delay_minutes, last_train_missed, seat_contention
     )
-    risk_level = calculate_risk_level(risk_score)
+    risk_level = calculate_risk_level(risk_score, last_train_missed)
     rec = generate_recommendation(
         transfer_possible, delay, available, required, profile_data, next_train
     )
     passenger_message = generate_passenger_message(
         delay, estimated_delay_minutes, risk_level
     )
+
+    arrival_possible_today = (
+        transfer_possible or next_train is not None
+    )
+
     local_suggestions = recommend_local(
-        estimated_delay_minutes, original_arrival_iso
+        estimated_delay_minutes, original_arrival_iso,
+        arrival_possible=arrival_possible_today
     )
 
     return {
@@ -274,6 +295,7 @@ def run(scenario_path="data/Scenario.json", scenario_data=None):
         "reason_code": rec["reason_code"],
         "reason": rec["reason"],
         "estimated_delay_minutes": estimated_delay_minutes,
+        "arrival_possible_today": arrival_possible_today,
         "recommendation": rec["recommendation"],
         "passenger_message": passenger_message,
         "local_suggestions": local_suggestions,

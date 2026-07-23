@@ -35,7 +35,7 @@ def _is_open_at(open_hours_str, check_minutes):
     return start_min <= check_minutes <= end_min
 
 
-def recommend(estimated_delay_minutes, original_arrival_iso=None, local_places_data=None):
+def recommend(estimated_delay_minutes, original_arrival_iso=None, local_places_data=None, arrival_possible=True):
     """
     Recommend local places based on dead time (delay) at destination.
     
@@ -53,6 +53,9 @@ def recommend(estimated_delay_minutes, original_arrival_iso=None, local_places_d
     Returns:
         list of up to 3 suggestion dicts with place info and selection reason
     """
+    if not arrival_possible:
+        return []
+
     if local_places_data is None:
         local_places_data = load_local_places()
 
