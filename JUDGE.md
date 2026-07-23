@@ -4,7 +4,7 @@
 
 ## What problem is solved?
 
-A passenger flies from **Jeju to Gimpo**, then plans to take **KTX from Seoul to Busan**. Their flight is delayed by 45 minutes. Can they still catch the train? If not, what should they do?
+A passenger arrives at **Incheon International Airport** from abroad, then plans to take **AREX → KTX to Busan**. Their flight is delayed by 45 minutes. Can they still catch the train? If not, what should they do?
 
 **Railway and aviation systems are disconnected today.** No single system answers this question. NEXUS proves that integrating both data sources enables better transfer decisions.
 
@@ -12,20 +12,20 @@ A passenger flies from **Jeju to Gimpo**, then plans to take **KTX from Seoul to
 
 | Step | What happens |
 |------|-------------|
-| 1 | A flight delay event is received (KE-A, +45 min) |
-| 2 | NEXUS calculates: available transfer time (5 min) < required transfer time (30 min) → **transfer impossible** |
-| 3 | Risk score: **0.83 (HIGH)** |
-| 4 | Recommendation: **"Take the next available KTX"** |
-| 5 | Operator Dashboard displays all data |
-| 6 | Passenger View shows the message in plain language |
+| 1 | A flight delay event is received (KE-123, +45 min) |
+| 2 | NEXUS calculates: available transfer time (95 min) < required transfer time (118 min) → **transfer impossible** |
+| 3 | Risk score: **0.17 (MEDIUM)**, ETA: **30 min** |
+| 4 | Recommendation: **"Take KTX-110 at 14:00"** |
+| 5 | Operator Dashboard displays all data (Korean labels) |
+| 6 | Passenger View shows Korean message with local suggestions |
 
 ## Demo steps (60 seconds)
 
 1. **Start:** `python3 frontend/server.py`
 2. **Open:** `http://localhost:8080`
-3. **Dashboard loads** — Operator sees: SC001, ❌ Failed, HIGH, 0.83, 70 min delay
-4. **Passenger sees:** *"Your flight has been delayed by 45 minutes... We recommend taking the next available KTX. Estimated arrival delay: 70 minutes."*
-5. **Kill the server → reload** — cached fallback works (internet failure demo)
+3. **Dashboard loads** — Operator sees: SC001, ❌ 불가능, MEDIUM, 0.17, 30분 delay, Korean passenger message
+4. **Passenger sees:** *"항공편이 45분 지연되었습니다. 예정된 KTX 환승이 불가능하여 Take KTX-110 at 14:00을(를) 추천합니다..."*
+5. **Fault injection:** Visit `/api/result?fault=1` then reload — cached fallback works (server failure demo)
 
 ## Why this matters
 
@@ -33,7 +33,7 @@ A passenger flies from **Jeju to Gimpo**, then plans to take **KTX from Seoul to
 - **Explainable** — Every recommendation includes a reason, risk score, and estimated delay (no black box)
 - **Deterministic** — Rule-based, no ML/LLM, fully auditable
 - **Resilient** — Graceful fallback if data sources are unavailable
-- **Extensible** — Public API integration ready; activate with an API key
+- **Extensible** — Normalization layer for public API data is implemented; API endpoint is ready to connect
 
 ## Architecture highlights
 
@@ -47,7 +47,7 @@ Scenario.json (facts) → Rule Engine (judgment) → Dashboard (presentation)
 
 ## Known limitations
 
-- **Mock data** — single scenario, not live API data (API integration ready but requires a key)
+- **Mock data** — single scenario, not live API data (normalization layer is implemented; endpoint is not yet connected)
 - **Not production software** — accuracy is secondary to demonstrating the concept
 - **Feature-freeze** — no reservation, ticketing, payment, or multi-agent (by design)
 

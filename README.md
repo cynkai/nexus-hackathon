@@ -1,6 +1,6 @@
 # NEXUS — Rail + Aviation Transfer Predictor
 
-> l내일路(로) 해커톤 2026
+> 내일路(로) 해커톤 2026
 
 **NEXUS** demonstrates why combining railway and aviation data enables better transfer decisions than treating each system independently.
 
@@ -89,7 +89,7 @@ nexus-hackathon/
 ```bash
 # No dependencies required. Standard library only.
 git clone <repo-url>
-cd nexushackathon
+cd nexus-hackathon
 ```
 
 ## Run
@@ -118,22 +118,22 @@ python3 rules/rule_engine.py
 
 1. Start server → `python3 frontend/server.py`
 2. Open browser → `http://localhost:8080`
-3. Dashboard loads with "Loading…" → replaced by live data
+3. Dashboard loads with "불러오는 중…" → replaced by live data
 4. **Operator Dashboard** shows:
-   - Scenario ID, Transfer Status (❌ Failed), Risk Level (HIGH 🔴)
-   - Risk Score (0.83), Estimated Delay (70 min)
-   - Recommendation ("Take the next available KTX")
-5. **Passenger View** shows the passenger message
-6. Stop the server → reload page → **cached fallback** displays with "cached" badge
+   - 시나리오 ID: SC001, 환승 가능 여부 (❌ 불가능), 위험도 (MEDIUM 🟠)
+   - 위험 점수: 0.17, 예상 지연: 30분
+   - 추천 ("Take KTX-110 at 14:00")
+5. **Passenger View** shows Korean passenger message
+6. Visit `http://localhost:8080/api/result?fault=1` → reload page → **cached fallback** displays with "cached" badge
 
 ---
 
 ## Limitations
 
 - **Accuracy is secondary.** The goal is demonstrating integrated mobility data, not production-grade predictions.
-- **Mock data.** Current demo uses a single pre-defined scenario. Public API integration is set up but requires an API key to activate.
+- **Mock data.** Current demo uses a single pre-defined scenario. The normalization layer for public API data is implemented; the API endpoint is not yet connected.
 - **No reservation/payment.** Feature freeze by design — the MVP proves the concept, not the full platform.
-- **Single route.** Demo covers one route (Jeju → Gimpo → Seoul → Busan). The rule engine works for any route, but only one scenario is provided.
+- **Single route.** Demo covers one route (Fukuoka → Incheon → Seoul → Busan). The rule engine works for any route, but only one scenario is provided.
 
 ---
 
@@ -147,4 +147,4 @@ python3 rules/rule_engine.py
 
 ---
 
-Built for **l내일路(로) 해커톤 2026** by the NEXUS team.
+Built for **내일路(로) 해커톤 2026** by the NEXUS team.
