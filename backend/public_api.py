@@ -32,16 +32,29 @@ USE_PUBLIC_API = False
 DATA_SOURCE_FILE = "Scenario.json"
 DATA_SOURCE_API = "data.go.kr"
 
+# ── Scenario file mapping (demo switching) ─────────────────────────
+SCENARIO_FILES = {
+    "feasible":  "Scenario_feasible.json",
+    "delayed":   "Scenario.json",
+    "lasttrain": "Scenario_lasttrain.json",
+}
+
 # ── Internal helpers ───────────────────────────────────────────────
 
 
-def _load_scenario_json(path=None):
-    """Load the local Scenario.json as fallback."""
+def _load_scenario_json(path=None, scenario_key=None):
+    """Load a local scenario JSON file by key or explicit path."""
     if path is None:
-        path = Path(__file__).parent.parent / "data" / "Scenario.json"
+        if scenario_key is not None:
+            safe_key = scenario_key if scenario_key in SCENARIO_FILES else "delayed"
+            filename = SCENARIO_FILES[safe_key]
+            path = Path(__file__).parent.parent / "data" / filename
+            print(f"[INFO] Scenario key='{scenario_key}' → '{filename}'")
+        else:
+            path = Path(__file__).parent.parent / "data" / "Scenario.json"
     else:
         path = Path(path)
-    print(f"[INFO] Using {DATA_SOURCE_FILE}")
+    print(f"[INFO] Using scenario file: {path.name}")
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -245,28 +258,33 @@ def normalize_to_scenario(raw_data):
 # ── Main entry point ───────────────────────────────────────────────
 
 
-def get_scenario_data():
+def get_scenario_data(scenario_key=None):
     """
     Return Scenario-compatible data.
     
     If USE_PUBLIC_API is True:
         Try public API → normalize → return
-        On any failure: log warning → fall back to data/Scenario.json
+        On any failure: log warning → fall back to selected scenario
     Else:
-        Return data/Scenario.json immediately.
+        Return local scenario file selected by scenario_key.
+    
+    Args:
+        scenario_key: key into SCENARIO_FILES ("feasible", "delayed",
+                      "lasttrain"). Invalid key → silent fallback to
+                      "delayed". Ignored when USE_PUBLIC_API is True.
     
     Returns:
-        dict in Scenario.json format (always)
+        dict in Scenario.json format (always).
     """
     if not USE_PUBLIC_API:
-        return _load_scenario_json()
+        return _load_scenario_json(scenario_key=scenario_key)
 
     print(f"[INFO] Using {DATA_SOURCE_API}")
     raw = fetch_public_data()
 
     if raw is None:
         print(f"[WARN] {DATA_SOURCE_API} unavailable. Falling back to {DATA_SOURCE_FILE}.")
-        return _load_scenario_json()
+        return _load_scenario_json(scenario_key=scenario_key)
 
     try:
         scenario = normalize_to_scenario(raw)
@@ -277,7 +295,7 @@ def get_scenario_data():
             f"[WARN] {DATA_SOURCE_API} data invalid ({e}). "
             f"Falling back to {DATA_SOURCE_FILE}."
         )
-        return _load_scenario_json()
+        return _load_scenario_json(scenario_key=scenario_key)
 
 
 # ── CLI test ───────────────────────────────────────────────────────

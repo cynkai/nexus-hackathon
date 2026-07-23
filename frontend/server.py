@@ -38,8 +38,9 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
                 body = json.dumps({"error": "Simulated fault"}, ensure_ascii=False).encode("utf-8")
                 self.wfile.write(body)
                 return
+            scenario_key = params.get("scenario")
             try:
-                scenario = get_scenario_data()
+                scenario = get_scenario_data(scenario_key=scenario_key)
                 data = run_rule_engine(scenario_data=scenario)
                 lang = scenario.get("passenger", {}).get("language", "ko")
                 data = explain_result(data, override_language=lang)
