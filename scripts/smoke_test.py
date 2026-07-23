@@ -17,6 +17,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 PASS = 0
 FAIL = 0
+SKIP = 0
 
 
 def check(description, condition):
@@ -27,6 +28,12 @@ def check(description, condition):
     else:
         FAIL += 1
         print(f"  ❌ {description}")
+
+
+def skip(description):
+    global SKIP
+    SKIP += 1
+    print(f"  ⏭️  {description}")
 
 
 # ── 1. Scenario.json exists and is valid ───────────────────────────
@@ -49,6 +56,19 @@ try:
     forbidden = ["feasible", "status", "available_minutes", "required_minutes"]
     for fname in forbidden:
         check(f"Scenario.json transfers does NOT contain '{fname}' (T2 regression guard)", fname not in t)
+
+    # F5 reg: itinerary leg 3 matches rail_timetable entry
+    leg3 = scenario["itinerary"][2]
+    timetable = scenario.get("rail_timetable", [])
+    match = [e for e in timetable if e["service_id"] == leg3["service_id"]]
+    if match:
+        e = match[0]
+        dep_match = e["departure"] == leg3["scheduled_departure"].split("T")[1][:5]
+        arr_match = e["arrival"] == leg3["scheduled_arrival"].split("T")[1][:5]
+        check("F5: itinerary leg3 service_id matches rail_timetable entry",
+              dep_match and arr_match)
+    else:
+        check("F5: itinerary leg3 service_id matches rail_timetable entry", False)
 except (FileNotFoundError, json.JSONDecodeError) as e:
     check(f"Scenario.json load failed: {e}", False)
     for _ in range(10): check("(skipped)", False)
@@ -75,7 +95,7 @@ try:
     check("transfer_possible is bool", isinstance(result["transfer_possible"], bool))
     check("risk_level is valid", result["risk_level"] in ("LOW", "MEDIUM", "HIGH", "CRITICAL"))
     check("reason_code is valid",
-          result["reason_code"] in ("TRANSFER_FEASIBLE", "TRANSFER_TIME_INSUFFICIENT"))
+          result["reason_code"] in ("TRANSFER_FEASIBLE", "TRANSFER_TIME_INSUFFICIENT", "LAST_TRAIN_MISSED"))
     check("recommendation is object", isinstance(result["recommendation"], dict))
     check("passenger_message is string", isinstance(result["passenger_message"], str))
 
@@ -241,9 +261,196 @@ except Exception as e:
     for _ in range(2): check("(skipped)", False)
 
 
-# ── 7. Cleanup ────────────────────────────────────────────────────
+# ── 7. Last Train Path Regression (F1) ───────────────────────────
+print("\n[7/7] Last Train Path Regression")
+
+try:
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from rules.rule_engine import run as run_re
+
+    # Build a 20:00 arrival scenario (after last train)
+    d20 = copy.deepcopy(scenario)
+    d20["itinerary"][0]["actual_arrival"] = "2026-07-23T20:00:00"
+    d20["delay_events"][0]["actual_arrival"] = "2026-07-23T20:00:00"
+    d20["delay_events"][0]["delay_minutes"] = 455
+    d20["transfers"][0]["from_arrival"] = "2026-07-23T20:00:00"
+    r20 = run_re(scenario_data=d20)
+
+    # F1-1: reason_code == "LAST_TRAIN_MISSED"
+    check("F1-1: reason_code == 'LAST_TRAIN_MISSED' when no train available",
+          r20["reason_code"] == "LAST_TRAIN_MISSED")
+
+    # F1-2: service_id is None → reason_code is NOT TRANSFER_TIME_INSUFFICIENT
+    sid_none = r20["recommendation"]["service_id"] is None
+    not_tti = r20["reason_code"] != "TRANSFER_TIME_INSUFFICIENT"
+    check("F1-2: service_id is None → reason_code != TRANSFER_TIME_INSUFFICIENT",
+          sid_none and not_tti)
+
+    # F1-3: 14:55(대체편 있음→계산값) vs 20:00(없음→null)
+    d1455 = copy.deepcopy(scenario)
+    d1455["itinerary"][0]["actual_arrival"] = "2026-07-23T14:55:00"
+    d1455["delay_events"][0]["actual_arrival"] = "2026-07-23T14:55:00"
+    d1455["delay_events"][0]["delay_minutes"] = 210
+    d1455["transfers"][0]["from_arrival"] = "2026-07-23T14:55:00"
+    r1455 = run_re(scenario_data=d1455)
+
+    check("F1-3: 14:55(has train)→int, 20:00(no train)→null",
+          isinstance(r1455["estimated_delay_minutes"], int)
+          and r20["estimated_delay_minutes"] is None)
+
+    check("F1-3b: arrival_possible_today == False when no train",
+          r20.get("arrival_possible_today") is False)
+
+    # F1-4: local_suggestions is empty when arrival impossible (20:00)
+    check("F1-4: local_suggestions == [] when no train available",
+          r20.get("local_suggestions", None) == [])
+
+    # F1-5: different risk_level between 14:55 (KTX-135 exists) and 20:00 (none)
+    d1455 = copy.deepcopy(scenario)
+    d1455["itinerary"][0]["actual_arrival"] = "2026-07-23T14:55:00"
+    d1455["delay_events"][0]["actual_arrival"] = "2026-07-23T14:55:00"
+    d1455["delay_events"][0]["delay_minutes"] = 210
+    d1455["transfers"][0]["from_arrival"] = "2026-07-23T14:55:00"
+    r1455 = run_re(scenario_data=d1455)
+
+    check("F1-5: alternative exists(14:55) vs none(20:00) → different risk_level",
+          r1455["risk_level"] != r20["risk_level"])
+
+    # F1-6: No CJK replacement artifact in .py and .md files
+    GARBAGE = "\u66ff\u4ee3"  # CJK replacement artifact detector
+    found_garbage = False
+    for ext in (".py", ".md"):
+        for fpath in PROJECT_ROOT.rglob(f"*{ext}"):
+            if "__pycache__" in str(fpath):
+                continue
+            try:
+                content = fpath.read_text(encoding="utf-8")
+                if GARBAGE in content:
+                    found_garbage = True
+                    break
+            except Exception:
+                pass
+        if found_garbage:
+            break
+    check("F1-6: No CJK replacement artifact in .py / .md files", not found_garbage)
+
+except Exception as e:
+    import traceback
+    traceback.print_exc()
+    check(f"F1 block failed: {e}", False)
+    for _ in range(6): check("(skipped)", False)
+
+
+# ── 8. G1: Explainer Message Consistency ───────────────────────
+# Current explainer branches on risk_level instead of reason_code,
+# causing MEDIUM + TRANSFER_FEASIBLE to show "impossible" message.
+print("\n[8/8] Explainer Message Consistency (G1)")
+
+try:
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from rules.rule_engine import run as run_re
+    from rules.explainer import explain as run_explain
+
+    def _with_slack(slack_minutes):
+        """Return scenario copy where KTX departure is adjusted to give
+        exactly slack_minutes of buffer (available - required)."""
+        required = 118  # from transfer_profile.json
+        # actual_arrival = 11:55 → 715 min since midnight
+        arr_min = 715
+        # target available = required + slack
+        target_avail = required + slack_minutes
+        dep_min = arr_min + target_avail
+        dep_h, dep_m = dep_min // 60, dep_min % 60
+        dep_str = f"{dep_h:02d}:{dep_m:02d}"
+        d = copy.deepcopy(scenario)
+        d["itinerary"][2]["scheduled_departure"] = f"2026-07-23T{dep_str}:00"
+        arr_h, arr_m = (dep_h + 2) % 24, (dep_m + 30) % 60
+        if dep_m + 30 >= 60:
+            arr_h = (dep_h + 3) % 24
+        d["itinerary"][2]["scheduled_arrival"] = f"2026-07-23T{arr_h:02d}:{arr_m:02d}:00"
+        d["transfers"][0]["to_departure"] = f"2026-07-23T{dep_str}:00"
+        return d
+
+    slack_cases = {"slack_67": 67, "slack_22": 22, "slack_12": 12, "slack_2": 2}
+    case_results = {}
+
+    for name, slack in slack_cases.items():
+        s = _with_slack(slack)
+        re_result = run_re(scenario_data=s)
+        # Template path (no LLM)
+        tmpl = run_explain(dict(re_result), override_language="ko")
+        # English path
+        tmpl_en = run_explain(dict(re_result), override_language="en")
+        case_results[name] = (re_result, tmpl, tmpl_en)
+
+        tp = re_result["transfer_possible"]
+
+        # 1. transfer_possible == True → "불가능" 미포함
+        check(f"G1-1 {name}: msg has no '불가능' when tp={tp}",
+              not tp or "불가능" not in tmpl["passenger_message"])
+
+        # 2. transfer_possible == True → "고객센터" 미포함
+        check(f"G1-2 {name}: msg has no '고객센터' when tp={tp}",
+              not tp or "고객센터" not in tmpl["passenger_message"])
+
+        # 3. TRANSFER_FEASIBLE → message says 가능 (not 불가능)
+        if re_result["reason_code"] == "TRANSFER_FEASIBLE":
+            check(f"G1-3 {name}: TRANSFER_FEASIBLE msg says 환승이 가능",
+                  "환승이 가능" in tmpl["passenger_message"])
+
+        # 6. English path: tp=True → no "no longer possible"
+        check(f"G1-6 {name}: en msg no 'no longer possible' when tp={tp}",
+              not tp or "no longer possible" not in tmpl_en["passenger_message"])
+
+    # 4. LAST_TRAIN_MISSED → message contains "대체 열차" 없음
+    d20 = copy.deepcopy(scenario)
+    d20["itinerary"][0]["actual_arrival"] = "2026-07-23T20:00:00"
+    d20["delay_events"][0]["actual_arrival"] = "2026-07-23T20:00:00"
+    d20["delay_events"][0]["delay_minutes"] = 455
+    d20["transfers"][0]["from_arrival"] = "2026-07-23T20:00:00"
+    r20 = run_re(scenario_data=d20)
+    tmpl_20 = run_explain(dict(r20), override_language="ko")
+    check("G1-4: LAST_TRAIN_MISSED msg says '대체 열차' 없음",
+          r20["reason_code"] == "LAST_TRAIN_MISSED" and "대체 열차" in tmpl_20["passenger_message"])
+
+    # 5. LLM active path: if NEXUS_LLM_API_KEY is set, re-run tests 1-4
+    import os
+    if os.environ.get("NEXUS_LLM_API_KEY"):
+        for name, slack in slack_cases.items():
+            s = _with_slack(slack)
+            re_result = run_re(scenario_data=s)
+            llm = run_explain(dict(re_result), override_language="ko")
+            tp = re_result["transfer_possible"]
+            check(f"G1-5a LLM {name}: no '불가능' when tp={tp}",
+                  not tp or "불가능" not in llm["passenger_message"])
+            check(f"G1-5b LLM {name}: no '고객센터' when tp={tp}",
+                  not tp or "고객센터" not in llm["passenger_message"])
+            if re_result["reason_code"] == "TRANSFER_FEASIBLE":
+                check(f"G1-5c LLM {name}: TRANSFER_FEASIBLE msg says 환승이 가능",
+                      "환승이 가능" in llm["passenger_message"])
+        d20b = copy.deepcopy(scenario)
+        d20b["itinerary"][0]["actual_arrival"] = "2026-07-23T20:00:00"
+        d20b["delay_events"][0]["actual_arrival"] = "2026-07-23T20:00:00"
+        d20b["delay_events"][0]["delay_minutes"] = 455
+        d20b["transfers"][0]["from_arrival"] = "2026-07-23T20:00:00"
+        r20b = run_re(scenario_data=d20b)
+        llm_20 = run_explain(dict(r20b), override_language="ko")
+        check("G1-5d LLM: LAST_TRAIN_MISSED msg says '대체 열차'",
+              "대체 열차" in llm_20["passenger_message"])
+    else:
+        for _ in range(8):
+            skip("G1-5 (LLM path): set NEXUS_LLM_API_KEY to enable")
+
+except Exception as e:
+    import traceback
+    traceback.print_exc()
+    check(f"G1 block failed: {e}", False)
+    for _ in range(28): check("(skipped)", False)
+
+
+# ── Summary ──────────────────────────────────────────────────────
 print(f"\n{'='*40}")
-print(f"  PASS: {PASS}  |  FAIL: {FAIL}")
+print(f"  PASS: {PASS}  |  FAIL: {FAIL}  |  SKIP: {SKIP}")
 print(f"{'='*40}\n")
 
 sys.exit(0 if FAIL == 0 else 1)
