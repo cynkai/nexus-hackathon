@@ -66,9 +66,10 @@
   }
 
   /* risk level status colors */
-  .status-LOW    { --status-color: #16a34a; --status-bg: #dcfce7; }
-  .status-MEDIUM { --status-color: #ea580c; --status-bg: #ffedd5; }
-  .status-HIGH   { --status-color: #dc2626; --status-bg: #fee2e2; }
+  .status-LOW      { --status-color: #16a34a; --status-bg: #dcfce7; }
+  .status-MEDIUM   { --status-color: #ea580c; --status-bg: #ffedd5; }
+  .status-HIGH     { --status-color: #dc2626; --status-bg: #fee2e2; }
+  .status-CRITICAL { --status-color: #7f1d1d; --status-bg: #fecaca; }
   .status-indicator {
     display: inline-flex; align-items: center; gap: 0.45rem;
     background: var(--status-bg); padding: 0.2rem 0.65rem 0.2rem 0.5rem;
@@ -140,19 +141,19 @@
     <h2>Operator Dashboard</h2>
     <div class="panel-body empty-state" id="loading-operator">
       <div class="icon">⏳</div>
-      <div class="msg">Loading…</div>
+      <div class="msg">불러오는 중…</div>
     </div>
   </div>
   <div class="panel">
     <h2>Passenger View</h2>
     <div class="panel-body empty-state" id="loading-passenger">
       <div class="icon">⏳</div>
-      <div class="msg">Loading…</div>
+      <div class="msg">불러오는 중…</div>
     </div>
   </div>
 </main>
 
-<div class="footer">NEXUS &mdash; l내일路(로) 해커톤 2026</div>
+<div class="footer">NEXUS &mdash; 내일路(로) 해커톤 2026</div>
 
 <script>
 (function () {
@@ -164,54 +165,56 @@
     const riskClass = "status-" + d.risk_level;
     const rcClass = "rc-" + d.reason_code;
     const transferIcon = d.transfer_possible ? "\u2705" : "\u274C";
-    const transferText = d.transfer_possible ? "Possible" : "Failed";
+    const transferText = d.transfer_possible ? "가능" : "불가능";
     const cacheTag = isCached
       ? '<span class="cache-badge">cached</span>'
       : "";
 
+    const sid = d.recommendation.service_id;
+    const dep = d.recommendation.departure;
+    const trainInfo = sid && dep ? `${sid} (${dep} 출발)` : "정보 없음";
+    const recAction = d.recommendation.target === "LAST_TRAIN_MISSED" ? "막차 놓침" : "대체 열차";
+
     const operatorHTML = `
       <div class="panel-body">
         <div class="row">
-          <span class="label">Scenario ID ${cacheTag}</span>
+          <span class="label">시나리오 ID ${cacheTag}</span>
           <span class="value">${d.scenario_id}</span>
         </div>
         <div class="row">
-          <span class="label">Transfer Status</span>
+          <span class="label">환승 가능 여부</span>
           <span class="value">${transferIcon} ${transferText}</span>
         </div>
         <div class="row ${riskClass}">
-          <span class="label">Risk Level</span>
+          <span class="label">위험도</span>
           <span class="value status-indicator">
             <span class="status-dot"></span>
             <span class="status-text">${d.risk_level}</span>
           </span>
         </div>
         <div class="row">
-          <span class="label">Risk Score</span>
+          <span class="label">위험 점수</span>
           <span class="value">${d.risk_score}</span>
         </div>
         <div class="row">
-          <span class="label">Estimated Delay</span>
-          <span class="value">${d.estimated_delay_minutes} min</span>
+          <span class="label">예상 지연</span>
+          <span class="value">${d.estimated_delay_minutes}분</span>
         </div>
         <div class="row">
-          <span class="label">Reason Code</span>
+          <span class="label">사유 코드</span>
           <span class="value"><span class="reason-code ${rcClass}">${d.reason_code}</span></span>
         </div>
         <div class="row">
-          <span class="label">Reason</span>
+          <span class="label">상세 사유</span>
           <span class="value" style="font-weight:400;font-size:0.8rem;max-width:55%;text-align:right">${d.reason}</span>
         </div>
         <div class="row">
-          <span class="label">Recommendation</span>
+          <span class="label">추천</span>
           <span class="value">
             <div class="rec-card">
-              <div class="rec-label">${d.recommendation.action} &middot; ${d.recommendation.target}</div>
+              <div class="rec-label">${recAction} &middot; ${d.recommendation.target}</div>
               <div class="rec-value">${d.recommendation.display}</div>
-              <div class="rec-detail">
-                service_id: ${d.recommendation.service_id ?? "null"} &middot;
-                departure: ${d.recommendation.departure ?? "null"}
-              </div>
+              <div class="rec-detail">${trainInfo}</div>
             </div>
           </span>
         </div>
@@ -224,6 +227,21 @@
       </div>
     `;
 
+    var suggestionsHTML = "";
+    if (d.local_suggestions && d.local_suggestions.length > 0) {
+      var items = d.local_suggestions.map(function(s) {
+        return '<div class="rec-card" style="margin-top:0.35rem">' +
+          '<div class="rec-label">' + s.category + ' · ' + s.name + '</div>' +
+          '<div class="rec-value" style="font-size:0.85rem">' + s.description + '</div>' +
+          '<div class="rec-detail">도보 ' + s.walk_minutes_from_station + '분 · 체류 ' + s.typical_duration_minutes + '분</div>' +
+          '</div>';
+      }).join("");
+      suggestionsHTML = '<div class="panel-body" style="padding-top:0">' +
+        '<div class="row" style="border-bottom:none;flex-wrap:wrap;gap:0.5rem">' +
+        items +
+        '</div></div>';
+    }
+
     app.innerHTML = `
       <div class="panel">
         <h2>Operator Dashboard</h2>
@@ -232,6 +250,10 @@
       <div class="panel">
         <h2>Passenger View</h2>
         ${passengerHTML}
+      </div>
+      <div class="panel" style="${suggestionsHTML ? '' : 'display:none'}">
+        <h2>주변 장소 추천</h2>
+        ${suggestionsHTML || '<div class="panel-body empty-state"><div class="msg">이용 가능한 장소가 없습니다</div></div>'}
       </div>
     `;
   }
@@ -242,7 +264,7 @@
         <h2>Operator Dashboard</h2>
         <div class="panel-body">
           <div class="error-state">
-            <div class="title">Rule Engine unavailable</div>
+            <div class="title">데이터를 불러올 수 없습니다</div>
             <div class="desc">${msg}</div>
           </div>
         </div>
@@ -251,7 +273,7 @@
         <h2>Passenger View</h2>
         <div class="panel-body empty-state">
           <div class="icon">⚠️</div>
-          <div class="msg">No passenger message available</div>
+          <div class="msg">승객 안내 메시지를 불러올 수 없습니다</div>
         </div>
       </div>
     `;
@@ -265,14 +287,14 @@
     })
     .then(function (d) {
       try {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
       } catch (_) { /* storage full — proceed anyway */ }
       renderDashboard(d, false);
     })
     .catch(function () {
       // Fallback: try cached result
       var cached = null;
-      try { cached = sessionStorage.getItem(STORAGE_KEY); } catch (_) { /* noop */ }
+      try { cached = localStorage.getItem(STORAGE_KEY); } catch (_) { /* noop */ }
       if (cached) {
         try {
           var d = JSON.parse(cached);

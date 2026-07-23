@@ -13,6 +13,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from backend.public_api import get_scenario_data
 from rules.rule_engine import run as run_rule_engine
+from rules.explainer import explain as explain_result
 
 PORT = 8080
 HOST = "0.0.0.0"
@@ -21,10 +22,27 @@ HOST = "0.0.0.0"
 class DashboardHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
-        if self.path == "/api/result":
+        if self.path.startswith("/api/result"):
+            # Fault injection: /api/result?fault=1 triggers 500 (for demo fallback test)
+            parsed = self.path.split("?")
+            params = {}
+            if len(parsed) > 1:
+                for pair in parsed[1].split("&"):
+                    if "=" in pair:
+                        k, v = pair.split("=", 1)
+                        params[k] = v
+            if params.get("fault") == "1":
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.end_headers()
+                body = json.dumps({"error": "Simulated fault"}, ensure_ascii=False).encode("utf-8")
+                self.wfile.write(body)
+                return
             try:
                 scenario = get_scenario_data()
                 data = run_rule_engine(scenario_data=scenario)
+                lang = scenario.get("passenger", {}).get("language", "ko")
+                data = explain_result(data, override_language=lang)
                 self._json_response(data)
             except Exception as e:
                 self.send_response(500)
@@ -57,6 +75,8 @@ class DashboardHandler(http.server.BaseHTTPRequestHandler):
             return
         self.send_response(200)
         self.send_header("Content-Type", content_type)
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.send_header("ETag", '"nexus-dashboard-v1"')
         self.end_headers()
         with open(path, encoding="utf-8") as f:
             self.wfile.write(f.read().encode("utf-8"))
