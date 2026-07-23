@@ -37,7 +37,7 @@
     {
       "leg": 3,
       "mode": "rail",
-      "service_id": "KTX-101",
+      "service_id": "KTX-105",
       "origin": "Seoul Station",
       "destination": "Busan",
       "scheduled_departure": "2026-07-23T13:30:00",
