@@ -1,0 +1,10 @@
+{
+  "icn_t1_to_seoul_station": {
+    "immigration_minutes": 40,
+    "baggage_claim_minutes": 15,
+    "airport_to_arex_platform_minutes": 10,
+    "arex_express_minutes": 43,
+    "seoul_station_to_ktx_platform_minutes": 10,
+    "_source": "인천공항 입국장→공항철도 직통(AREX Express) 소요시간. AREX 공식 소요시간: 인천공항1터미널→서울역 43분. 입국심사 평균 대기시간: 인천국제공항공사 통계 기준 일반 20~40분, 혼잡시 60분+ — 본 프로파일은 상한값 사용. 수하물 수취 15분은 항공사 평균 공시 기준. 실제 값은 운항 조건·혼잡도에 따라 변동."
+  }
+}
