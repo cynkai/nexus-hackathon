@@ -48,6 +48,7 @@ Scenario
 → Risk Score
 → Rule Engine
 → Recommendation
+→ Local Tourism Connection (규칙 기반 추천)
 → Dashboard
 → Passenger View
 Prediction
