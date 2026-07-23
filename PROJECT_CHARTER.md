@@ -36,6 +36,9 @@ Do NOT build:
 - National-scale optimization
 - Real traffic-control integration
 ---
+## Built (in scope for MVP)
+- Local tourism suggestions (지역 관광 추천 계층) — implemented as optional add-on when transfer delay allows idle time
+---
 ## Non-goals
 This MVP is not production software.
 Accuracy is secondary.
