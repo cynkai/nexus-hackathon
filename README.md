@@ -12,13 +12,14 @@ Railway and aviation systems optimize independently. Transfer decisions across b
 
 ## Solution
 
-NEXUS integrates rail and aviation schedule data in real time:
+NEXUS integrates rail and aviation schedule data to predict transfer disruptions:
 
 1. **Detect** delay events from flight data
 2. **Calculate** transfer feasibility using deterministic rules
 3. **Score** the travel risk
 4. **Generate** explainable recommendations
-5. **Display** results via Operator Dashboard + Passenger View
+5. **Suggest** local tourism options near the destination
+6. **Display** results via Operator Dashboard + Passenger View
 
 ---
 
@@ -26,10 +27,14 @@ NEXUS integrates rail and aviation schedule data in real time:
 
 ```
 data/Scenario.json  ─┐
-                     ├──→ backend/public_api.py ─→ rules/rule_engine.py ─→ frontend/server.py ─→ frontend/index.html
+                      ├──→ backend/public_api.py ─→ rules/rule_engine.py ─→ frontend/server.py ─→ frontend/index.html
 Public API (future) ─┘         │                        │                       │
-                          normalizer              deterministic rules        Dashboard UI
-                          (optional)              (no ML, no LLM)           (presentation only)
+                           normalizer              deterministic rules      Dashboard UI
+                           (optional)              (judgment layer)        (presentation only)
+                                                    │
+                                                    ↓
+                                              rules/explainer.py
+                                              (LLM or template — explanation only)
 ```
 
 **Data flow:**
@@ -48,7 +53,7 @@ Dashboard (Operator + Passenger View)
 
 | Decision | Rationale |
 |----------|-----------|
-| Rule-based (no ML/LLM) | Deterministic, explainable, demo-reliable |
+| Judgment deterministic, explanation only LLM | All scores/reason codes are rule-based; LLM generates only the passenger message. Smoke test proves identity (LLM on/off → decision fields are byte-identical) |
 | Facts vs. judgment separated | Scenario is facts only; Rule Engine judges; Dashboard presents |
 | Public API is optional | Demo always works; API integration is additive |
 | No framework in frontend | Stdlib only, zero dependencies, single file |
@@ -69,17 +74,21 @@ nexus-hackathon/
 │   ├── __init__.py
 │   └── public_api.py          Optional public data source + normalizer
 ├── data/
-│   └── Scenario.json          Mock schedule data (single source of truth)
+│   ├── Scenario.json              Mock schedule data (single source of truth)
+│   ├── local_places.json          Busan local tourism places
+│   └── transfer_profile.json      Component transfer times (ICN→Seoul Station)
 ├── docs/
-│   ├── DEMO_CHECKLIST.md      Demo preparation checklist
-│   └── Scenario.md            Human-readable scenario definition
+│   ├── DEMO_CHECKLIST.md          Demo preparation checklist
+│   └── Scenario.md                Human-readable scenario definition
 ├── frontend/
-│   ├── index.html             Dashboard + Passenger View UI
-│   └── server.py              HTTP server (stdlib)
+│   ├── index.html                 Dashboard + Passenger View UI
+│   └── server.py                  HTTP server (stdlib)
 ├── rules/
-│   └── rule_engine.py         Deterministic rule engine
+│   ├── rule_engine.py             Deterministic rule engine (judgment)
+│   ├── explainer.py               LLM or template explanation layer
+│   └── local_recommender.py       Rule-based local tourism suggestions
 └── scripts/
-    └── smoke_test.py          Pipeline verification
+    └── smoke_test.py              Pipeline verification
 ```
 
 ---
@@ -144,6 +153,12 @@ python3 rules/rule_engine.py
 - [ ] Timeline visualization in Dashboard
 - [ ] Historical delay data for ML-enhanced prediction
 - [ ] Mobile-responsive Passenger View
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
