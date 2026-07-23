@@ -33,7 +33,7 @@ A passenger arrives at **Incheon International Airport** from abroad, then plans
 - **Explainable** — Every recommendation includes a reason, risk score, and estimated delay (no black box)
 - **Deterministic** — All scores, risk levels, and recommendations are rule-based. Passenger-facing text uses LLM when available (template fallback otherwise). Smoke test proves decision fields are byte-identical between LLM and template paths. Fully auditable.
 - **Resilient** — Graceful fallback if data sources are unavailable
-- **Extensible** — Normalization layer for public API data is implemented; API endpoint is ready to connect
+- **Extensible** — Flight data normalization layer is implemented; rail timetable integration pending. Flight API endpoint is ready to connect.
 
 ## Architecture highlights
 
