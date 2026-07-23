@@ -1,0 +1,102 @@
+{
+  "destination": "Busan",
+  "station": "Busan Station",
+  "places": [
+    {
+      "name": "부산역 광장",
+      "category": "관광",
+      "walk_minutes_from_station": 0,
+      "open_hours": "00:00-24:00",
+      "typical_duration_minutes": 15,
+      "description": "부산역 바로 앞 광장, 부산타워 조망 가능"
+    },
+    {
+      "name": "차이나타운",
+      "category": "관광",
+      "walk_minutes_from_station": 10,
+      "open_hours": "09:00-21:00",
+      "typical_duration_minutes": 30,
+      "description": "부산역 도보 10분 거리 중국 문화 거리"
+    },
+    {
+      "name": "자갈치시장",
+      "category": "관광",
+      "walk_minutes_from_station": 15,
+      "open_hours": "08:00-22:00",
+      "typical_duration_minutes": 45,
+      "description": "한국 최대 수산시장, 활어회 직거래"
+    },
+    {
+      "name": "용두산공원",
+      "category": "관광",
+      "walk_minutes_from_station": 15,
+      "open_hours": "06:00-24:00",
+      "typical_duration_minutes": 40,
+      "description": "부산타워 위치, 시내 전망"
+    },
+    {
+      "name": "남포동",
+      "category": "상권",
+      "walk_minutes_from_station": 15,
+      "open_hours": "10:00-22:00",
+      "typical_duration_minutes": 60,
+      "description": "부산 최대 번화가, 쇼핑과 먹거리"
+    },
+    {
+      "name": "BIFF 광장",
+      "category": "관광",
+      "walk_minutes_from_station": 18,
+      "open_hours": "09:00-23:00",
+      "typical_duration_minutes": 30,
+      "description": "부산국제영화제 명소, 거리 예술 공연"
+    },
+    {
+      "name": "송도해상케이블카",
+      "category": "관광",
+      "walk_minutes_from_station": 20,
+      "open_hours": "09:00-20:00",
+      "typical_duration_minutes": 60,
+      "description": "해상 케이블카, 송도 해안 절경"
+    },
+    {
+      "name": "감천문화마을",
+      "category": "관광",
+      "walk_minutes_from_station": 25,
+      "open_hours": "09:00-18:00",
+      "typical_duration_minutes": 90,
+      "description": "알록달록 벽화마을, 부산 대표 관광지"
+    },
+    {
+      "name": "서면",
+      "category": "상권",
+      "walk_minutes_from_station": 30,
+      "open_hours": "10:00-23:00",
+      "typical_duration_minutes": 60,
+      "description": "부산 중심 상업지구, 지하상가 밀집"
+    },
+    {
+      "name": "부산시립미술관",
+      "category": "관광",
+      "walk_minutes_from_station": 30,
+      "open_hours": "10:00-20:00",
+      "typical_duration_minutes": 60,
+      "description": "현대 미술 전시, 무료 관람"
+    },
+    {
+      "name": "광안리해수욕장",
+      "category": "관광",
+      "walk_minutes_from_station": 40,
+      "open_hours": "00:00-24:00",
+      "typical_duration_minutes": 60,
+      "description": "광안대교 야경, 카페 거리"
+    },
+    {
+      "name": "해운대해수욕장",
+      "category": "관광",
+      "walk_minutes_from_station": 50,
+      "open_hours": "00:00-24:00",
+      "typical_duration_minutes": 90,
+      "description": "한국 대표 해변, 고급 리조트 밀집"
+    }
+  ]
+}
