@@ -163,7 +163,7 @@ try:
     required_output = [
         "scenario_id", "transfer_possible", "risk_score",
         "risk_level", "reason_code", "reason",
-        "estimated_delay_minutes", "flight_delay_minutes",
+        "estimated_delay_minutes", "flight_delay_minutes", "local_selection",
         "recommendation", "passenger_message"
     ]
     for field in required_output:
@@ -592,6 +592,66 @@ except Exception as e:
     traceback.print_exc()
     check(f"G1 block failed: {e}", False)
     for _ in range(28): check("(skipped)", False)
+
+
+# ── [9/9] Scenario Realism + Selection Stats (J) ─────────────────
+print("\n[9/9] Scenario Realism + Selection Stats (J)")
+
+import copy as _copy
+sys.path.insert(0, str(PROJECT_ROOT))
+from rules.rule_engine import run as _j_run
+
+_J_FILES = ["Scenario_feasible.json", "Scenario.json", "Scenario_lasttrain.json"]
+_j_data = {f: json.load(open(PROJECT_ROOT / "data" / f)) for f in _J_FILES}
+
+# J1: 세 시나리오의 시각표가 동일한가
+_tt = [json.dumps(_j_data[f]["rail_timetable"], sort_keys=True) for f in _J_FILES]
+check("J1-1: all three scenarios share the same rail_timetable", len(set(_tt)) == 1)
+
+# J1: 항공 지연이 세 시나리오 모두 현실적 범위인가 (결항 수준 배제)
+for f in _J_FILES:
+    _dm = _j_data[f]["delay_events"][0]["delay_minutes"]
+    check(f"J1-2 {f}: flight delay {_dm} min is realistic (<= 180)", _dm <= 180)
+
+# J1: 예약 열차가 시각표에 존재하고 편명·출발·도착이 일치하는가
+for f in _J_FILES:
+    _leg = [l for l in _j_data[f]["itinerary"] if l["mode"] == "rail"][0]
+    _match = [t for t in _j_data[f]["rail_timetable"]
+              if t["service_id"] == _leg["service_id"]
+              and t["departure"] == _leg["scheduled_departure"][11:16]
+              and t["arrival"] == _leg["scheduled_arrival"][11:16]]
+    check(f"J1-3 {f}: booked train {_leg['service_id']} matches timetable", len(_match) == 1)
+
+# J1: 예약 시점에 그 열차가 탈 수 있었어야 한다 (예정 도착 + 필요 환승시간 <= 출발)
+_req = sum(v for k, v in json.load(open(PROJECT_ROOT / "data" / "transfer_profile.json"))
+           ["icn_t1_to_seoul_station"].items() if not k.startswith("_"))
+for f in _J_FILES:
+    _sched = _j_data[f]["itinerary"][0]["scheduled_arrival"][11:16]
+    _leg = [l for l in _j_data[f]["itinerary"] if l["mode"] == "rail"][0]
+    _dep = _leg["scheduled_departure"][11:16]
+    _m = lambda t: int(t[:2]) * 60 + int(t[3:])
+    check(f"J1-4 {f}: booking is coherent ({_sched}+{_req}min <= {_dep})",
+          _m(_sched) + _req <= _m(_dep))
+
+# J1: 자정을 넘어 도착하는 편성이 없어야 한다 (ETA 계산이 분-단위 비교이므로)
+for f in _J_FILES:
+    _bad = [t for t in _j_data[f]["rail_timetable"]
+            if int(t["arrival"][:2]) * 60 + int(t["arrival"][3:])
+            < int(t["departure"][:2]) * 60 + int(t["departure"][3:])]
+    check(f"J1-5 {f}: no timetable entry arrives past midnight", not _bad)
+
+# J4: 선정 통계가 결정론적이고 산술이 맞는가
+for f, _possible in [("Scenario_feasible.json", True), ("Scenario.json", True),
+                     ("Scenario_lasttrain.json", False)]:
+    _r1 = _j_run(scenario_data=_copy.deepcopy(_j_data[f]))
+    _r2 = _j_run(scenario_data=_copy.deepcopy(_j_data[f]))
+    _s = _r1["local_selection"]
+    check(f"J4-1 {f}: local_selection is deterministic", _s == _r2["local_selection"])
+    check(f"J4-2 {f}: evaluated == selected + excluded",
+          _s["evaluated"] == _s["selected"] + _s["excluded"])
+    check(f"J4-3 {f}: selected count matches suggestion list",
+          _s["selected"] == len(_r1["local_suggestions"]))
+    check(f"J4-4 {f}: note is non-empty", bool(_s["note"]))
 
 
 # ── Summary ──────────────────────────────────────────────────────

@@ -205,8 +205,14 @@
 
     const sid = d.recommendation.service_id;
     const dep = d.recommendation.departure;
-    const trainInfo = sid && dep ? `${esc(sid)} (${esc(dep)} 출발)` : "정보 없음";
-    const recAction = d.recommendation.target === "LAST_TRAIN_MISSED" ? "막차 놓침" : "대체 열차";
+    const trainInfo = sid && dep ? `${esc(sid)} (${esc(dep)} 출발)` : "";
+    const REC_LABELS = {
+      CURRENT_PLAN: "현행 유지",
+      NEXT_AVAILABLE_RAIL: "대체 열차",
+      LAST_TRAIN_MISSED: "막차 놓침"
+    };
+    const recAction = REC_LABELS[d.recommendation.target] || "추천";
+    const recValue = d.recommendation.display_ko || d.recommendation.display;
 
     const operatorHTML = `
       <div class="panel-body">
@@ -246,8 +252,8 @@
           <span class="value">
             <div class="rec-card">
               <div class="rec-label">${recAction} &middot; ${esc(d.recommendation.target)}</div>
-              <div class="rec-value">${esc(d.recommendation.display)}</div>
-              <div class="rec-detail">${trainInfo}</div>
+              <div class="rec-value">${esc(recValue)}</div>
+              ${trainInfo ? `<div class="rec-detail">${trainInfo}</div>` : ""}
             </div>
           </span>
         </div>
@@ -269,7 +275,14 @@
           '<div class="rec-detail">도보 ' + s.walk_minutes_from_station + '분 · 체류 ' + s.typical_duration_minutes + '분</div>' +
           '</div>';
       }).join("");
+      var sel = d.local_selection;
+      var statLine = sel
+        ? '<div class="rec-detail" style="margin-bottom:0.5rem">' +
+            '평가 대상 ' + sel.evaluated + '곳 → 선정 ' + sel.selected + '곳 · ' + esc(sel.note) +
+          '</div>'
+        : "";
       suggestionsHTML = '<div class="panel-body" style="padding-top:0">' +
+        statLine +
         '<div class="row" style="border-bottom:none;flex-wrap:wrap;gap:0.5rem">' +
         items +
         '</div></div>';

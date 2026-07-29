@@ -15,7 +15,7 @@ _project_root = str(Path(__file__).parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from rules.local_recommender import recommend as recommend_local
+from rules.local_recommender import recommend as recommend_local, selection_stats as local_selection_stats
 
 
 def load_scenario(path="data/Scenario.json"):
@@ -286,6 +286,10 @@ def run(scenario_path="data/Scenario.json", scenario_data=None):
         estimated_delay_minutes, original_arrival_iso,
         arrival_possible=arrival_possible_today
     )
+    local_selection = local_selection_stats(
+        estimated_delay_minutes, original_arrival_iso,
+        arrival_possible=arrival_possible_today
+    )
 
     return {
         "scenario_id": data["scenario_id"],
@@ -300,6 +304,7 @@ def run(scenario_path="data/Scenario.json", scenario_data=None):
         "recommendation": rec["recommendation"],
         "passenger_message": passenger_message,
         "local_suggestions": local_suggestions,
+        "local_selection": local_selection,
     }
 
 

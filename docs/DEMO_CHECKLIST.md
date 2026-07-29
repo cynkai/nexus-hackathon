@@ -72,7 +72,7 @@ Same engine, four outcomes — three scenario levels plus one fault fallback:
 - [ ] Point to **30 min** estimated delay
 - [ ] Point to **14:00 출발 KTX-110** recommendation
 - [ ] Point to **Passenger View** message (Korean)
-- [ ] Point to **주변 장소 추천** panel (local suggestions)
+- [ ] Point to **주변 장소 추천** panel — 평가 12곳 → 선정 1곳 (선정 근거 표시)
 
 **③ 막차 시나리오 (CRITICAL 🔴)** — `/api/result?scenario=lasttrain`
 - [ ] Visit `http://localhost:8080/api/result?scenario=lasttrain` or press 🔴 막차 button
@@ -82,6 +82,8 @@ Same engine, four outcomes — three scenario levels plus one fault fallback:
 - [ ] Point to **당일 도착 불가** delay display
 - [ ] Point to passenger message: *"대체 열차가 없습니다. 고객센터(1544-7788)..."*
 - [ ] Note: local suggestions **disappear** (도착 불가) — intentional
+- [ ] **핵심 대비**: ②와 ③은 항공 지연이 **둘 다 45분**이다.
+      도착 시간대가 달라 MEDIUM과 CRITICAL로 갈린다 — 엔진이 실제로 계산한다는 증거
 
 **④ 장애 폴백** — `/api/result?fault=1` → 새로고침
 - [ ] Visit `http://localhost:8080/api/result?fault=1` → reload page → **cached** badge appears
