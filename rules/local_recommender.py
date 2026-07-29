@@ -116,3 +116,40 @@ def recommend(estimated_delay_minutes, original_arrival_iso=None, local_places_d
     # Sort by walk distance (shortest first), take top 3
     candidates.sort(key=lambda c: c["walk_minutes_from_station"])
     return candidates[:3]
+
+
+def selection_stats(estimated_delay_minutes, original_arrival_iso=None,
+                    local_places_data=None, arrival_possible=True):
+    """
+    Deterministic summary of how the local recommendation filter behaved.
+
+    Returns a dict describing how many places were evaluated, how many were
+    selected, and why the rest were excluded. Exposing this makes a short
+    suggestion list self-explanatory rather than looking like a thin feature.
+    """
+    if local_places_data is None:
+        local_places_data = load_local_places()
+
+    total = len(local_places_data.get("places", []))
+    selected = len(recommend(
+        estimated_delay_minutes, original_arrival_iso,
+        local_places_data, arrival_possible
+    ))
+
+    if not arrival_possible:
+        note = "당일 도착이 불가능하여 추천하지 않음"
+    elif estimated_delay_minutes <= 0:
+        note = "지연으로 비는 시간이 없어 추천 대상 아님"
+    elif total == 0:
+        note = "등록된 장소 없음"
+    elif selected == 0:
+        note = "확보 가능 시간 내 방문 가능한 장소 없음"
+    else:
+        note = f"{total - selected}곳은 확보 가능 시간 초과 또는 영업시간 불일치로 제외"
+
+    return {
+        "evaluated": total,
+        "selected": selected,
+        "excluded": total - selected,
+        "note": note,
+    }
