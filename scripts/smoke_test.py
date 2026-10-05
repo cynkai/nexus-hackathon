@@ -35,9 +35,39 @@ def skip(description):
     SKIP += 1
     print(f"  ⏭️  {description}")
 
+import contextlib
+
+
+@contextlib.contextmanager
+def template_only():
+    """Run explain() without an LLM key, whatever the environment says."""
+    saved = os.environ.pop("NEXUS_LLM_API_KEY", None)
+    try:
+        yield
+    finally:
+        if saved is not None:
+            os.environ["NEXUS_LLM_API_KEY"] = saved
+
+
+@contextlib.contextmanager
+def fake_llm(fn):
+    """Replace the LLM call with fn(base_message, lang, **kw) — no network."""
+    sys.path.insert(0, str(PROJECT_ROOT))
+    import rules.explainer as ex
+    saved_fn, saved_key = ex._llm_generate, os.environ.get("NEXUS_LLM_API_KEY")
+    ex._llm_generate = fn
+    os.environ["NEXUS_LLM_API_KEY"] = saved_key or "fake-key-for-tests"
+    try:
+        yield
+    finally:
+        ex._llm_generate = saved_fn
+        if saved_key is None:
+            os.environ.pop("NEXUS_LLM_API_KEY", None)
+
+
 
 # ── 1. Scenario.json exists and is valid ───────────────────────────
-print("\n[1/7] Scenario.json")
+print("\n[1/10] Scenario.json")
 scenario_path = PROJECT_ROOT / "data" / "Scenario.json"
 try:
     with open(scenario_path) as f:
@@ -153,7 +183,7 @@ except Exception as e:
 
 
 # ── 2. Rule Engine executes ────────────────────────────────────────
-print("\n[2/7] Rule Engine")
+print("\n[2/10] Rule Engine")
 sys.path.insert(0, str(PROJECT_ROOT))
 try:
     from rules.rule_engine import run as run_rule_engine
@@ -235,8 +265,8 @@ except Exception as e:
 
 
 # ── 3+4. Start server once → test API + Dashboard ──────────────────
-print("\n[3/7] API Endpoint")
-print("[4/7] Dashboard")
+print("\n[3/10] API Endpoint")
+print("[4/10] Dashboard")
 
 server_proc = None
 try:
@@ -318,7 +348,7 @@ finally:
 
 
 # ── 5. Public API fallback ─────────────────────────────────────────
-print("\n[5/7] Public API Fallback")
+print("\n[5/10] Public API Fallback")
 try:
     from backend.public_api import get_scenario_data
     data = get_scenario_data()
@@ -363,7 +393,7 @@ except Exception as e:
 
 
 # ── 6. Explain / Local regression tests ──────────────────────────
-print("\n[6/7] Explain + Local Suggestions")
+print("\n[6/10] Explain + Local Suggestions")
 sys.path.insert(0, str(PROJECT_ROOT))
 try:
     # Re-use the rule engine result from section 2 (variable 'result' still in scope?)
@@ -374,10 +404,16 @@ try:
         from rules.rule_engine import run as run_re
         base = run_re()
 
-    # T11(5): LLM vs template identity test
+    # T11(5): LLM vs template identity test — the LLM path is forced with a
+    # fake LLM (no network) so the two calls really take different paths.
+    import rules.explainer as explainer_mod
     from rules.explainer import explain as explain_result
-    llm_path = explain_result(dict(base))
-    tmpl_path = explain_result(dict(base))
+    with template_only():
+        tmpl_path = explain_result(dict(base))
+    with fake_llm(lambda base_message, lang, **kw: base_message + " 안전한 여행 되세요."):
+        llm_path = explain_result(dict(base))
+    check("LLM path really used in identity test",
+          llm_path["passenger_message"] != tmpl_path["passenger_message"])
     decision_fields = ['risk_score', 'risk_level', 'reason_code',
                        'estimated_delay_minutes', 'recommendation',
                        'local_suggestions', 'reason']
@@ -408,7 +444,7 @@ except Exception as e:
 
 
 # ── 7. Last Train Path Regression (F1) ───────────────────────────
-print("\n[7/7] Last Train Path Regression")
+print("\n[7/10] Last Train Path Regression")
 
 try:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -490,7 +526,7 @@ except Exception as e:
 # ── 8. G1: Explainer Message Consistency ───────────────────────
 # Current explainer branches on risk_level instead of reason_code,
 # causing MEDIUM + TRANSFER_FEASIBLE to show "impossible" message.
-print("\n[8/8] Explainer Message Consistency (G1)")
+print("\n[8/10] Explainer Message Consistency (G1)")
 
 try:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -523,10 +559,11 @@ try:
     for name, slack in slack_cases.items():
         s = _with_slack(slack)
         re_result = run_re(scenario_data=s)
-        # Template path (no LLM)
-        tmpl = run_explain(dict(re_result), override_language="ko")
-        # English path
-        tmpl_en = run_explain(dict(re_result), override_language="en")
+        # Template path (no LLM, even if a key is set)
+        with template_only():
+            tmpl = run_explain(dict(re_result), override_language="ko")
+            # English path
+            tmpl_en = run_explain(dict(re_result), override_language="en")
         case_results[name] = (re_result, tmpl, tmpl_en)
 
         tp = re_result["transfer_possible"]
@@ -555,7 +592,8 @@ try:
     d20["delay_events"][0]["delay_minutes"] = 455
     d20["transfers"][0]["from_arrival"] = "2026-07-23T20:00:00"
     r20 = run_re(scenario_data=d20)
-    tmpl_20 = run_explain(dict(r20), override_language="ko")
+    with template_only():
+        tmpl_20 = run_explain(dict(r20), override_language="ko")
     check("G1-4: LAST_TRAIN_MISSED msg says '대체 열차' 없음",
           r20["reason_code"] == "LAST_TRAIN_MISSED" and "대체 열차" in tmpl_20["passenger_message"])
 
@@ -572,8 +610,8 @@ try:
             check(f"G1-5b LLM {name}: no '고객센터' when tp={tp}",
                   not tp or "고객센터" not in llm["passenger_message"])
             if re_result["reason_code"] == "TRANSFER_FEASIBLE":
-                check(f"G1-5c LLM {name}: TRANSFER_FEASIBLE msg says 환승이 가능",
-                      "환승이 가능" in llm["passenger_message"])
+                check(f"G1-5c LLM {name}: TRANSFER_FEASIBLE msg says 가능",
+                      "가능" in llm["passenger_message"].replace("불가능", ""))
         d20b = copy.deepcopy(scenario)
         d20b["itinerary"][0]["actual_arrival"] = "2026-07-23T20:00:00"
         d20b["delay_events"][0]["actual_arrival"] = "2026-07-23T20:00:00"
@@ -584,7 +622,7 @@ try:
         check("G1-5d LLM: LAST_TRAIN_MISSED msg says '대체 열차'",
               "대체 열차" in llm_20["passenger_message"])
     else:
-        for _ in range(8):
+        for _ in range(13):
             skip("G1-5 (LLM path): set NEXUS_LLM_API_KEY to enable")
 
 except Exception as e:
@@ -594,8 +632,8 @@ except Exception as e:
     for _ in range(28): check("(skipped)", False)
 
 
-# ── [9/9] Scenario Realism + Selection Stats (J) ─────────────────
-print("\n[9/9] Scenario Realism + Selection Stats (J)")
+# ── [9/10] Scenario Realism + Selection Stats (J) ─────────────────
+print("\n[9/10] Scenario Realism + Selection Stats (J)")
 
 import copy as _copy
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -652,6 +690,74 @@ for f, _possible in [("Scenario_feasible.json", True), ("Scenario.json", True),
     check(f"J4-3 {f}: selected count matches suggestion list",
           _s["selected"] == len(_r1["local_suggestions"]))
     check(f"J4-4 {f}: note is non-empty", bool(_s["note"]))
+
+
+# ── [10/10] LLM message guard (K) — no network, fake LLM ────────
+print("\n[10/10] LLM message guard (K)")
+
+import rules.explainer as _k_ex
+from rules.explainer import explain as _k_explain, check_message as _k_check, _template_message as _k_tmpl
+
+def _k_slack(slack_minutes):
+    d = _copy.deepcopy(_j_data["Scenario.json"])
+    dep = 715 + _req + slack_minutes
+    t = f"2026-07-23T{dep // 60:02d}:{dep % 60:02d}:00"
+    d["itinerary"][2]["scheduled_departure"] = t
+    d["transfers"][0]["to_departure"] = t
+    return d
+
+_k_cases = {
+    "feasible_low": _j_run(scenario_data=_k_slack(67)),
+    "feasible_tight": _j_run(scenario_data=_k_slack(12)),
+    "insufficient": _j_run(scenario_data=_copy.deepcopy(_j_data["Scenario.json"])),
+    "lasttrain": _j_run(scenario_data=_copy.deepcopy(_j_data["Scenario_lasttrain.json"])),
+}
+check("K0: cases cover all three reason codes",
+      {r["reason_code"] for r in _k_cases.values()} ==
+      {"TRANSFER_FEASIBLE", "TRANSFER_TIME_INSUFFICIENT", "LAST_TRAIN_MISSED"})
+
+# K1: every template message passes its own check (ko and en)
+for _name, _r in _k_cases.items():
+    for _lang in ("ko", "en"):
+        _t = _k_tmpl(_r, _lang)
+        check(f"K1 {_name}/{_lang}: template passes check_message", _k_check(_t, _r, _t, _lang) == [])
+
+def _k_run(result, reply, lang="ko"):
+    with fake_llm(lambda base_message, lang, **kw: reply(base_message)):
+        return _k_explain(dict(result), override_language=lang)["passenger_message"]
+
+# K2: a faithful rephrase is used
+_r = _k_cases["insufficient"]
+_good = _k_run(_r, lambda b: "고객님, 죄송합니다. " + b)
+check("K2-1 faithful rephrase is used (insufficient)", _good.startswith("고객님, 죄송합니다."))
+_r = _k_cases["feasible_tight"]
+_good = _k_run(_r, lambda b: "불편을 드려 죄송합니다. " + b)
+check("K2-2 faithful rephrase is used (tight transfer)", _good.startswith("불편을 드려 죄송합니다."))
+
+# K3: contradictions and omissions fall back to the template
+_bad = [
+    ("feasible_low", "항공편이 지연되어 예정된 KTX 환승이 불가능합니다.", "says impossible when feasible"),
+    ("feasible_tight", "항공편이 지연되었지만 KTX 환승이 가능합니다. 편히 이동하세요.", "drops the urgency"),
+    ("feasible_low", "환승이 가능합니다. 문의는 고객센터(1544-7788)로 해 주세요.", "customer service on a feasible transfer"),
+    ("insufficient", "항공편 지연으로 환승이 불가능합니다. 14:30 출발 KTX-115를 이용해 주세요.", "invents a train/time"),
+    ("insufficient", "항공편 지연으로 환승이 불가능합니다. 다음 열차를 이용해 주세요.", "drops the recommended train"),
+    ("insufficient", "항공편이 지연되었지만 14:00 출발 KTX-110으로 환승이 가능합니다.", "says possible when impossible"),
+    ("lasttrain", "항공편 지연으로 KTX 환승이 불가능하며 오늘 대체 열차가 없습니다.", "drops the customer service number"),
+    ("lasttrain", "항공편 지연으로 환승이 불가능합니다. 고객센터(1544-7788)에 문의하세요.", "drops 'no alternative train'"),
+]
+for _name, _reply, _why in _bad:
+    _r = _k_cases[_name]
+    _msg = _k_run(_r, lambda b, _reply=_reply: _reply)
+    check(f"K3 {_name}: falls back to template when the LLM {_why}", _msg == _k_tmpl(_r, "ko"))
+
+# K4: English — contradiction falls back
+_r = _k_cases["feasible_low"]
+_msg = _k_run(_r, lambda b: "Your flight was delayed and the KTX transfer is no longer possible.", lang="en")
+check("K4 en: 'no longer possible' on a feasible transfer falls back", _msg == _k_tmpl(_r, "en"))
+
+# K5: LLM error (None) falls back
+_r = _k_cases["lasttrain"]
+check("K5: LLM error → template", _k_run(_r, lambda b: None) == _k_tmpl(_r, "ko"))
 
 
 # ── Summary ──────────────────────────────────────────────────────

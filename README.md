@@ -119,7 +119,8 @@ python3 frontend/server.py
 |---|---|---|
 | `PORT` | `8080` | |
 | `NEXUS_HOST` | `127.0.0.1` | `0.0.0.0` to open it to your network. With an LLM key set, anyone who can reach it spends your key. |
-| `NEXUS_LLM_API_KEY` | (none) | Your own OpenAI key. Without it, passenger messages come from templates. See [Limitations](#limitations). |
+| `NEXUS_LLM_API_KEY` | (none) | Your own OpenAI key. Without it, passenger messages come from templates. |
+| `NEXUS_LLM_MODEL` | `gpt-5.4-mini` | Model that rephrases the template message. |
 | `NEXUS_API_KEY` | (none) | Public flight-data API key for `backend/public_api.py` (rail side not implemented). |
 
 ## Verify
@@ -162,7 +163,7 @@ python3 rules/rule_engine.py
 - **Mock data.** Current demo uses three pre-defined scenarios (feasible/delayed/lasttrain). The flight data normalization layer is implemented (parses public API → scenario format); rail timetable integration is **not yet implemented** — the normalizer outputs an empty timetable, which causes the rule engine to fall back to default behavior. Production connection requires rail timetable API integration.
 - **No reservation/payment.** Feature freeze by design — the MVP proves the concept, not the full platform.
 - **Single route.** Demo covers one route (Fukuoka → Incheon → Seoul → Busan). The rule engine works for any route, but currently three variations of one route are provided.
-- **LLM messages can drift from the decision.** With `NEXUS_LLM_API_KEY` set (gpt-4o-mini), the decision fields stay byte-identical, but the passenger message is free text: in a v1.0.0 run it once said "불가능" for a feasible transfer, dropped the "move right away" urgency on a tight transfer, and left out the customer-service number on a missed last train. The smoke test's LLM checks (`G1-5`, skipped without a key) catch this — and with a key the template checks also run through the LLM, so 12 checks fail. The default template path passes everything. To be fixed in v1.1.0.
+- **The LLM only rephrases.** Since v1.1.0 the LLM gets the template message (not the raw data) and may only reword it. `check_message` rejects a rewrite that flips possible/impossible, drops the urgency, the recommended train or the customer-service number, or contains a number the template doesn't — then the template is shown instead. It can't catch every change of meaning (a reworded sentence can still shift nuance), which is why the template stays the reference.
 
 ---
 
