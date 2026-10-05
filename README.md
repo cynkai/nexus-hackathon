@@ -1,6 +1,11 @@
 # NEXUS — Rail + Aviation Transfer Predictor
 
-> 내일路(로) 해커톤 2026
+[![CI](https://github.com/cynkai/nexus-hackathon/actions/workflows/ci.yml/badge.svg)](https://github.com/cynkai/nexus-hackathon/actions/workflows/ci.yml)
+![Python stdlib only](https://img.shields.io/badge/dependencies-stdlib_only-brightgreen)
+
+> 내일路(로) 해커톤 2026 출품작에서 출발해 버전을 올려 가는 프로젝트 · [CHANGELOG](CHANGELOG.md) · [Releases](https://github.com/cynkai/nexus-hackathon/releases)
+
+**한국어 요약.** 항공편이 지연됐을 때, 이어서 타려던 KTX 환승이 아직 가능한지 규칙 엔진이 계산하고 위험도·대체 열차·남는 시간 동안의 지역 관광을 추천한다. 판단은 전부 결정적 규칙이고, LLM은 (키를 넣었을 때) 승객 안내 문장만 쓴다. Python 표준 라이브러리만 쓴다.
 
 **NEXUS** demonstrates why combining railway and aviation data enables better transfer decisions than treating each system independently.
 
@@ -65,6 +70,8 @@ Dashboard (Operator + Passenger View)
 
 ```
 nexus-hackathon/
+├── VERSION                    Current version (shown in the dashboard footer)
+├── CHANGELOG.md               Release notes
 ├── AGENTS.md                  AI agent behavior rules
 ├── PROJECT_CHARTER.md         Project mission and constraints
 ├── TASKS.md                   Task breakdown
@@ -96,8 +103,8 @@ nexus-hackathon/
 ## Setup
 
 ```bash
-# No dependencies required. Standard library only.
-git clone <repo-url>
+# No dependencies required. Standard library only (Python 3.10+).
+git clone https://github.com/cynkai/nexus-hackathon.git
 cd nexus-hackathon
 ```
 
@@ -107,6 +114,13 @@ cd nexus-hackathon
 python3 frontend/server.py
 # → http://localhost:8080
 ```
+
+| Environment variable | Default | Meaning |
+|---|---|---|
+| `PORT` | `8080` | |
+| `NEXUS_HOST` | `127.0.0.1` | `0.0.0.0` to open it to your network. With an LLM key set, anyone who can reach it spends your key. |
+| `NEXUS_LLM_API_KEY` | (none) | Your own OpenAI key. Without it, passenger messages come from templates. See [Limitations](#limitations). |
+| `NEXUS_API_KEY` | (none) | Public flight-data API key for `backend/public_api.py` (rail side not implemented). |
 
 ## Verify
 
@@ -148,6 +162,7 @@ python3 rules/rule_engine.py
 - **Mock data.** Current demo uses three pre-defined scenarios (feasible/delayed/lasttrain). The flight data normalization layer is implemented (parses public API → scenario format); rail timetable integration is **not yet implemented** — the normalizer outputs an empty timetable, which causes the rule engine to fall back to default behavior. Production connection requires rail timetable API integration.
 - **No reservation/payment.** Feature freeze by design — the MVP proves the concept, not the full platform.
 - **Single route.** Demo covers one route (Fukuoka → Incheon → Seoul → Busan). The rule engine works for any route, but currently three variations of one route are provided.
+- **LLM messages can drift from the decision.** With `NEXUS_LLM_API_KEY` set (gpt-4o-mini), the decision fields stay byte-identical, but the passenger message is free text: in a v1.0.0 run it once said "불가능" for a feasible transfer, dropped the "move right away" urgency on a tight transfer, and left out the customer-service number on a missed last train. The smoke test's LLM checks (`G1-5`, skipped without a key) catch this — and with a key the template checks also run through the LLM, so 12 checks fail. The default template path passes everything. To be fixed in v1.1.0.
 
 ---
 
@@ -167,4 +182,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
-Built for **내일路(로) 해커톤 2026** by the NEXUS team.
+Started at **내일路(로) 해커톤 2026** — the submission is kept at the [`hackathon-submission`](https://github.com/cynkai/nexus-hackathon/tree/hackathon-submission) tag. By [cynkai](https://github.com/cynkai).
